@@ -8,7 +8,7 @@ pub const Value = union(enum) {
     Bool: bool,
     Null: void,
 
-    pub fn get(self: Value, key: []const u8) ?Value {
+    fn get_obj(self: Value, key: []const u8) ?Value {
         if (self == .Object) {
             for (self.Object) |member| {
                 if (std.mem.eql(u8, member.key, key)) {
@@ -19,7 +19,17 @@ pub const Value = union(enum) {
         return null;
     }
 
-    pub fn fetch(self: Value, query: anytype) ?Value {
+    pub fn get(self: Value, query: anytype) ?Value {
+        const TO = @TypeOf(query);
+        if (comptime std.meta.trait.isZigString(TO)) {
+            return self.get_obj(@as([]const u8, query));
+        }
+        const TI = @typeInfo(TO);
+        if (TI == .Int or TI == .ComptimeInt) {
+            if (self == .Array) {
+                return self.Array[i];
+            }
+        }
         return self.fetch_inner(query, 0);
     }
 
@@ -31,7 +41,7 @@ pub const Value = union(enum) {
         const TO = @TypeOf(i);
         const TI = @typeInfo(TO);
         if (comptime std.meta.trait.isZigString(TO)) {
-            if (self.get(i)) |v| {
+            if (self.get_obj(i)) |v| {
                 return v.fetch_inner(query, n + 1);
             }
         }

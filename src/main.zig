@@ -22,7 +22,7 @@ pub fn main() !void {
     std.log.info("", .{});
 
     var count: usize = 1;
-    for (val.fetch(.{ "data", "children" }).?.Array) |ch| {
+    for (val.get(.{ "data", "children" }).?.Array) |ch| {
         const post = ch.get("data").?;
         const title = post.get("title").?.String;
         const author = post.get("author").?.String;
