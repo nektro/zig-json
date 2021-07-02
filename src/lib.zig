@@ -54,6 +54,9 @@ pub const Value = union(enum) {
     }
 
     pub fn format(self: Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) @TypeOf(writer).Error!void {
+        _ = fmt;
+        _ = options;
+
         switch (self) {
             .Object => {
                 try writer.writeAll("{");
@@ -96,6 +99,9 @@ pub const Member = struct {
     value: Value,
 
     pub fn format(self: Member, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) @TypeOf(writer).Error!void {
+        _ = fmt;
+        _ = options;
+
         try writer.print("\"{s}\": {}", .{ self.key, self.value });
     }
 };
@@ -151,10 +157,10 @@ pub fn parse(alloc: *std.mem.Allocator, input: []const u8) Parser.Error!Value {
 fn parse_value(p: *Parser, start: ?std.json.Token) Parser.Error!Value {
     const tok = start orelse try p.next();
     return switch (tok.?) {
-        .ObjectBegin => |t| Value{ .Object = try parse_object(p) },
-        .ObjectEnd => |t| error.JsonExpectedValueStartGotEnd,
-        .ArrayBegin => |t| Value{ .Array = try parse_array(p) },
-        .ArrayEnd => |t| error.JsonExpectedValueStartGotEnd,
+        .ObjectBegin => Value{ .Object = try parse_object(p) },
+        .ObjectEnd => error.JsonExpectedValueStartGotEnd,
+        .ArrayBegin => Value{ .Array = try parse_array(p) },
+        .ArrayEnd => error.JsonExpectedValueStartGotEnd,
         .String => |t| Value{ .String = t.slice(p.input, p.index - 1) },
         .Number => |t| Value{ .Number = try std.fmt.parseFloat(f64, t.slice(p.input, p.index - 1)) },
         .True => Value{ .Bool = true },
