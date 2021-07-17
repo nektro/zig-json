@@ -4,7 +4,8 @@ pub const Value = union(enum) {
     Object: []Member,
     Array: []Value,
     String: []const u8,
-    Number: f64,
+    Int:    i64,
+    Float:  f64,
     Bool: bool,
     Null: void,
 
@@ -81,8 +82,11 @@ pub const Value = union(enum) {
             .String => {
                 try writer.print("\"{s}\"", .{self.String});
             },
-            .Number => {
-                try writer.print("{}", .{self.Number});
+            .Int => {
+                try writer.print("{d}", .{self.Int});
+            },
+            .Float => {
+                try writer.print("{}", .{self.Float});
             },
             .Bool => {
                 try writer.print("{}", .{self.Bool});
@@ -139,6 +143,7 @@ const Parser = struct {
         std.fs.File.OpenError ||
         std.json.StreamingParser.Error ||
         std.mem.Allocator.Error ||
+        error{ Overflow } ||
         error{InvalidCharacter} ||
         error{ JsonExpectedObjKey, JsonExpectedValueStartGotEnd };
 };
@@ -162,7 +167,8 @@ fn parse_value(p: *Parser, start: ?std.json.Token) Parser.Error!Value {
         .ArrayBegin => Value{ .Array = try parse_array(p) },
         .ArrayEnd => error.JsonExpectedValueStartGotEnd,
         .String => |t| Value{ .String = t.slice(p.input, p.index - 1) },
-        .Number => |t| Value{ .Number = try std.fmt.parseFloat(f64, t.slice(p.input, p.index - 1)) },
+        .Number => |t| if (t.is_integer) Value{ .Int = try std.fmt.parseInt(i64, t.slice(p.input, p.index - 1), 10) } 
+                       else Value{ .Float = try std.fmt.parseFloat(f64, t.slice(p.input, p.index - 1)) },
         .True => Value{ .Bool = true },
         .False => Value{ .Bool = false },
         .Null => Value{ .Null = {} },
