@@ -4,8 +4,8 @@ pub const Value = union(enum) {
     Object: []Member,
     Array: []Value,
     String: []const u8,
-    Int:    i64,
-    Float:  f64,
+    Int: i64,
+    Float: f64,
     Bool: bool,
     Null: void,
 
@@ -143,7 +143,7 @@ const Parser = struct {
         std.fs.File.OpenError ||
         std.json.StreamingParser.Error ||
         std.mem.Allocator.Error ||
-        error{ Overflow } ||
+        error{Overflow} ||
         error{InvalidCharacter} ||
         error{ JsonExpectedObjKey, JsonExpectedValueStartGotEnd };
 };
