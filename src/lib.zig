@@ -28,7 +28,7 @@ pub const Value = union(enum) {
         const TI = @typeInfo(TO);
         if (TI == .Int or TI == .ComptimeInt) {
             if (self == .Array) {
-                return self.Array[i];
+                return self.Array[query];
             }
         }
         return self.fetch_inner(query, 0);
