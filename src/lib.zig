@@ -167,8 +167,7 @@ fn parse_value(p: *Parser, start: ?std.json.Token) Parser.Error!Value {
         .ArrayBegin => Value{ .Array = try parse_array(p) },
         .ArrayEnd => error.JsonExpectedValueStartGotEnd,
         .String => |t| Value{ .String = t.slice(p.input, p.index - 1) },
-        .Number => |t| if (t.is_integer) Value{ .Int = try std.fmt.parseInt(i64, t.slice(p.input, p.index - 1), 10) } 
-                       else Value{ .Float = try std.fmt.parseFloat(f64, t.slice(p.input, p.index - 1)) },
+        .Number => |t| if (t.is_integer) Value{ .Int = try std.fmt.parseInt(i64, t.slice(p.input, p.index - 1), 10) } else Value{ .Float = try std.fmt.parseFloat(f64, t.slice(p.input, p.index - 1)) },
         .True => Value{ .Bool = true },
         .False => Value{ .Bool = false },
         .Null => Value{ .Null = {} },
