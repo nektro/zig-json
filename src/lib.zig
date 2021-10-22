@@ -1,4 +1,5 @@
 const std = @import("std");
+const extras = @import("extras");
 
 pub const Value = union(enum) {
     Object: []Member,
@@ -32,6 +33,14 @@ pub const Value = union(enum) {
             }
         }
         return self.fetch_inner(query, 0);
+    }
+
+    pub fn getT(self: Value, query: anytype, comptime ty: std.meta.FieldEnum(Value)) ?extras.FieldType(Value, ty) {
+        if (self.get(query)) |val| {
+            if (val == .Null) return null;
+            return @field(val, @tagName(ty));
+        }
+        return null;
     }
 
     fn fetch_inner(self: Value, query: anytype, comptime n: usize) ?Value {

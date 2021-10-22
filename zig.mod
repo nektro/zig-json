@@ -3,5 +3,8 @@ name: json
 main: src/lib.zig
 license: MIT
 description: "A JSON library for inspecting arbitrary values"
+dependencies:
+  - src: git https://github.com/nektro/zig-extras
+
 dev_dependencies:
   - src: git https://github.com/truemedian/zfetch
