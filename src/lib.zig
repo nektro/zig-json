@@ -120,7 +120,7 @@ pub const Member = struct {
 };
 
 const Parser = struct {
-    alloc: *std.mem.Allocator,
+    alloc: std.mem.Allocator,
     p: std.json.StreamingParser,
     input: []const u8,
     index: usize,
@@ -157,7 +157,7 @@ const Parser = struct {
         error{ JsonExpectedObjKey, JsonExpectedValueStartGotEnd };
 };
 
-pub fn parse(alloc: *std.mem.Allocator, input: []const u8) Parser.Error!Value {
+pub fn parse(alloc: std.mem.Allocator, input: []const u8) Parser.Error!Value {
     const p = &Parser{
         .alloc = alloc,
         .p = std.json.StreamingParser.init(),
