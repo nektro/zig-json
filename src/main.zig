@@ -5,7 +5,7 @@ const zfetch = @import("zfetch");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = &gpa.allocator;
+    const alloc = gpa.allocator();
 
     const url = "https://old.reddit.com/r/Zig/.json";
 
