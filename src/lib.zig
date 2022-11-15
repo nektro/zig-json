@@ -184,8 +184,8 @@ fn parse_value(p: *Parser, start: ?std.json.Token) Parser.Error!Value {
 }
 
 fn parse_object(p: *Parser) Parser.Error![]Member {
-    const array = &std.ArrayList(Member).init(p.alloc);
-    defer array.deinit();
+    var array = std.ArrayList(Member).init(p.alloc);
+    errdefer array.deinit();
     while (true) {
         const tok = try p.next();
         if (tok.? == .ObjectEnd) {
@@ -202,8 +202,8 @@ fn parse_object(p: *Parser) Parser.Error![]Member {
 }
 
 fn parse_array(p: *Parser) Parser.Error![]Value {
-    const array = &std.ArrayList(Value).init(p.alloc);
-    defer array.deinit();
+    var array = std.ArrayList(Value).init(p.alloc);
+    errdefer array.deinit();
     while (true) {
         const tok = try p.next();
         if (tok.? == .ArrayEnd) {
