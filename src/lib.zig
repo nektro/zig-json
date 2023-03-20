@@ -70,7 +70,7 @@ pub const Value = union(enum) {
         switch (self) {
             .Object => {
                 try writer.writeAll("{");
-                for (self.Object) |member, i| {
+                for (self.Object, 0..) |member, i| {
                     if (i > 0) {
                         try writer.writeAll(", ");
                     }
@@ -80,7 +80,7 @@ pub const Value = union(enum) {
             },
             .Array => {
                 try writer.writeAll("[");
-                for (self.Array) |val, i| {
+                for (self.Array, 0..) |val, i| {
                     if (i > 0) {
                         try writer.writeAll(", ");
                     }
