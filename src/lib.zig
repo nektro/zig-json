@@ -120,32 +120,12 @@ pub const Member = struct {
 };
 
 const Parser = struct {
-    alloc: std.mem.Allocator,
-    p: std.json.StreamingParser,
-    input: []const u8,
-    index: usize,
-    tok2: ?std.json.Token,
+    p: std.json.Scanner,
 
     pub fn next(self: *Parser) !?std.json.Token {
-        if (self.tok2) |t2| {
-            defer self.tok2 = null;
-            return t2;
-        }
-        while (self.index < self.input.len) {
-            var tok: ?std.json.Token = null;
-            var tok2: ?std.json.Token = null;
-            const b = self.input[self.index];
-            try self.p.feed(b, &tok, &tok2);
-            self.index += 1;
-            if (tok) |_| {} else {
-                continue;
-            }
-            if (tok2) |t2| {
-                self.tok2 = t2;
-            }
-            return tok;
-        }
-        return null;
+        const tok = try self.p.next();
+        if (tok == .end_of_document) return null;
+        return tok;
     }
 
     pub const Error =
@@ -158,14 +138,10 @@ const Parser = struct {
 };
 
 pub fn parse(alloc: std.mem.Allocator, input: []const u8) Parser.Error!Value {
-    const p = &Parser{
-        .alloc = alloc,
-        .p = std.json.StreamingParser.init(),
-        .input = input,
-        .index = 0,
-        .tok2 = null,
+    var p = Parser{
+        .p = std.json.Scanner.initCompleteInput(alloc, input),
     };
-    return try parse_value(p, null);
+    return try parse_value(&p, null);
 }
 
 fn parse_value(p: *Parser, start: ?std.json.Token) Parser.Error!Value {
