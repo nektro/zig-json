@@ -1,8 +1,3 @@
 MIT:
 = https://spdx.org/licenses/MIT
 - This
-- git https://github.com/MasterQ32/zig-uri
-- git https://github.com/nektro/iguanaTLS
-- git https://github.com/nektro/zig-extras
-- git https://github.com/truemedian/hzzp
-- git https://github.com/truemedian/zfetch
