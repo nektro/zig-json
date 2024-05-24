@@ -3,3 +3,6 @@ name: json
 main: json.zig
 license: MIT
 description: "A JSON library for inspecting arbitrary values"
+dependencies:
+  - src: git https://github.com/nektro/zig-extras
+  - src: git https://github.com/nektro/zig-tracer
