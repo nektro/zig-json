@@ -36,9 +36,9 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
 }
 
 fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
-    try parseWs(alloc, p);
+    try parseWs(p);
     const v = try parseValue(alloc, p);
-    parseWs(alloc, p) catch |err| switch (err) {
+    parseWs(p) catch |err| switch (err) {
         error.EndOfStream => {},
         else => |e| return e,
     };
@@ -63,21 +63,21 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer members.deinit(alloc);
 
     while (true) {
-        try parseWs(alloc, p);
+        try parseWs(p);
         if (try p.eatByte('}')) |_| break;
 
         const key = try parseString(alloc, p) orelse return error.JsonExpectedObjectKey;
-        try parseWs(alloc, p);
+        try parseWs(p);
         _ = try p.eatByte(':') orelse return error.JsonExpectedObjectColon;
-        try parseWs(alloc, p);
+        try parseWs(p);
         const value = try parseValue(alloc, p);
         try members.put(alloc, key, value);
-        try parseWs(alloc, p);
+        try parseWs(p);
         _ = try p.eatByte(',') orelse {
             _ = try p.eatByte('}') orelse return error.JsonExpectedTODO;
             break;
         };
-        try parseWs(alloc, p);
+        try parseWs(p);
         if (try p.eatByte('}')) |_| break;
     }
     return try p.addObject(alloc, &members);
@@ -90,17 +90,17 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer elements.deinit(alloc);
 
     while (true) {
-        try parseWs(alloc, p);
+        try parseWs(p);
         if (try p.eatByte(']')) |_| break;
 
         const elem = try parseValue(alloc, p);
         try elements.append(alloc, elem);
-        try parseWs(alloc, p);
+        try parseWs(p);
         _ = try p.eatByte(',') orelse {
             _ = try p.eatByte(']') orelse return error.JsonExpectedTODO;
             break;
         };
-        try parseWs(alloc, p);
+        try parseWs(p);
         if (try p.eatByte(']')) |_| break;
     }
     return try p.addArray(alloc, elements.items);
@@ -189,8 +189,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     return try p.addNumber(alloc, characters.items);
 }
 
-fn parseWs(alloc: std.mem.Allocator, p: *Parser) !void {
-    _ = alloc;
+fn parseWs(p: *Parser) !void {
     while (true) {
         if (try p.eatByte(0x20)) |_| continue; // space
         if (try p.eatByte(0x0A)) |_| continue; // NL
