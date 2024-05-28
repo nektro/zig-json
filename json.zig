@@ -59,8 +59,10 @@ fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.eatByte('{') orelse return null;
 
+    var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
+    const alloc_local = sfa.get();
     var members = ObjectHashMap{};
-    defer members.deinit(alloc);
+    defer members.deinit(alloc_local);
 
     while (true) {
         try parseWs(p);
@@ -71,7 +73,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         _ = try p.eatByte(':') orelse return error.JsonExpectedObjectColon;
         try parseWs(p);
         const value = try parseValue(alloc, p);
-        try members.put(alloc, key, value);
+        try members.put(alloc_local, key, value);
         try parseWs(p);
         _ = try p.eatByte(',') orelse {
             _ = try p.eatByte('}') orelse return error.JsonExpectedTODO;
@@ -86,15 +88,17 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.eatByte('[') orelse return null;
 
+    var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
+    const alloc_local = sfa.get();
     var elements = std.ArrayListUnmanaged(ValueIndex){};
-    defer elements.deinit(alloc);
+    defer elements.deinit(alloc_local);
 
     while (true) {
         try parseWs(p);
         if (try p.eatByte(']')) |_| break;
 
         const elem = try parseValue(alloc, p);
-        try elements.append(alloc, elem);
+        try elements.append(alloc_local, elem);
         try parseWs(p);
         _ = try p.eatByte(',') orelse {
             _ = try p.eatByte(']') orelse return error.JsonExpectedTODO;
@@ -107,7 +111,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
-    var stack_fallback = std.heap.stackFallback(512, alloc);
+    var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
@@ -148,7 +152,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
 }
 
 fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
-    var stack_fallback = std.heap.stackFallback(512, alloc);
+    var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
