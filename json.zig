@@ -22,7 +22,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
     errdefer p.extras.deinit(alloc);
 
     comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
-    try p.extras.ensureUnusedCapacity(alloc, std.mem.page_size);
+    try p.extras.ensureUnusedCapacity(alloc, 4096);
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
