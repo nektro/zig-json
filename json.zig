@@ -36,6 +36,9 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
 }
 
 fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     try parseWs(p);
     const v = try parseValue(alloc, p);
     parseWs(p) catch |err| switch (err) {
@@ -46,6 +49,9 @@ fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 }
 
 fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     if (try p.eat("null")) |_| return @enumFromInt(1);
     if (try p.eat("true")) |_| return @enumFromInt(2);
     if (try p.eat("false")) |_| return @enumFromInt(3);
@@ -57,6 +63,9 @@ fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 }
 
 fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     _ = try p.eatByte('{') orelse return null;
 
     var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
@@ -86,6 +95,9 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     _ = try p.eatByte('[') orelse return null;
 
     var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
@@ -111,6 +123,9 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
@@ -152,6 +167,9 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
 }
 
 fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
@@ -194,6 +212,9 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseWs(p: *Parser) !void {
+    const t = tracer.trace(@src(), "", .{});
+    defer t.end();
+
     while (true) {
         if (try p.eatByte(0x20)) |_| continue; // space
         if (try p.eatByte(0x0A)) |_| continue; // NL
@@ -257,6 +278,9 @@ const Parser = struct {
     }
 
     pub fn eatByte(p: *Parser, test_c: u8) !?u8 {
+        const t = tracer.trace(@src(), " '{c}'", .{test_c});
+        defer t.end();
+
         try p.peekAmt(1);
         if (p.slice()[0] == test_c) {
             p.idx += 1;
@@ -266,6 +290,9 @@ const Parser = struct {
     }
 
     pub fn eatAnyScalar(p: *Parser, test_s: string) !?u8 {
+        const t = tracer.trace(@src(), " ({s})", .{test_s});
+        defer t.end();
+
         std.debug.assert(extras.matchesAll(u8, test_s, std.ascii.isASCII));
         try p.peekAmt(1);
         if (std.mem.indexOfScalar(u8, test_s, p.slice()[0])) |idx| {
@@ -290,6 +317,9 @@ const Parser = struct {
     }
 
     pub fn addObject(p: *Parser, alloc: std.mem.Allocator, members: *ObjectHashMap) !ValueIndex {
+        const t = tracer.trace(@src(), "({d})", .{members.entries.len});
+        defer t.end();
+
         const r = p.extras.items.len;
         const l = members.entries.len;
         if (l > std.math.maxInt(u32)) return error.JsonExpectedTODO;
@@ -302,6 +332,9 @@ const Parser = struct {
     }
 
     pub fn addArray(p: *Parser, alloc: std.mem.Allocator, items: []const ValueIndex) !ValueIndex {
+        const t = tracer.trace(@src(), "({d})", .{items.len});
+        defer t.end();
+
         const r = p.extras.items.len;
         const l = items.len;
         if (l > std.math.maxInt(u32)) return error.JsonExpectedTODO;
@@ -313,6 +346,9 @@ const Parser = struct {
     }
 
     pub fn addStr(p: *Parser, alloc: std.mem.Allocator, str: string) !StringIndex {
+        const t = tracer.trace(@src(), "({d})", .{str.len});
+        defer t.end();
+
         const adapter: Adapter = .{ .p = p };
         const res = try p.strings_map.getOrPutAdapted(alloc, str, adapter);
         if (res.found_existing) return res.value_ptr.*;
@@ -345,6 +381,9 @@ const Parser = struct {
     };
 
     pub fn addNumber(p: *Parser, alloc: std.mem.Allocator, v: []const u8) !ValueIndex {
+        const t = tracer.trace(@src(), "({s})", .{v});
+        defer t.end();
+
         const r = p.extras.items.len;
         const l = v.len;
         if (l > std.math.maxInt(u8)) return error.JsonExpectedTODO;
