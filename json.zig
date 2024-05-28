@@ -184,7 +184,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     if (try p.eatByte('0')) |_| {
         return try p.addNumber(alloc, "0");
     }
-    while (try p.eatAnyScalar("0123456789")) |d| {
+    while (try p.eatRange('0', '9')) |d| {
         try characters.append(d);
     }
     if (characters.items.len == 0) {
@@ -193,7 +193,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     if (try p.eatByte('.')) |c| {
         try characters.append(c);
         const l = characters.items.len;
-        while (try p.eatAnyScalar("0123456789")) |d| {
+        while (try p.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
         if (characters.items.len == l) return error.JsonExpectedTODO;
@@ -202,7 +202,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         try characters.append('e');
         try characters.append(try p.eatAnyScalar("+-") orelse return error.JsonExpectedTODO);
         const l = characters.items.len;
-        while (try p.eatAnyScalar("0123456789")) |d| {
+        while (try p.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
         if (characters.items.len == l) return error.JsonExpectedTODO;
@@ -285,6 +285,18 @@ const Parser = struct {
         if (p.slice()[0] == test_c) {
             p.idx += 1;
             return test_c;
+        }
+        return null;
+    }
+
+    pub fn eatRange(p: *Parser, comptime from: u8, comptime to: u8) !?u8 {
+        const t = tracer.trace(@src(), " ({d},{d})", .{ from, to });
+        defer t.end();
+
+        try p.peekAmt(1);
+        if (p.slice()[0] >= from and p.slice()[0] <= to) {
+            defer p.idx += 1;
+            return p.slice()[0];
         }
         return null;
     }
