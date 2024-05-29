@@ -13,7 +13,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
     _ = path;
 
     var counter = std.io.countingReader(inreader);
-    const anyreader = extras.AnyReader.from(counter.reader());
+    const anyreader = counter.reader().any();
     var p = Parser.init(alloc, anyreader);
     defer p.temp.deinit(alloc);
     defer p.strings_map.deinit(alloc);
@@ -223,7 +223,7 @@ fn parseWs(p: *Parser) !void {
 }
 
 const Parser = struct {
-    any: extras.AnyReader,
+    any: std.io.AnyReader,
     arena: std.mem.Allocator,
     temp: std.ArrayListUnmanaged(u8) = .{},
     idx: usize = 0,
@@ -233,7 +233,7 @@ const Parser = struct {
     extras: std.ArrayListUnmanaged(u8) = .{},
     strings_map: std.StringArrayHashMapUnmanaged(StringIndex) = .{},
 
-    pub fn init(allocator: std.mem.Allocator, any: extras.AnyReader) Parser {
+    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader) Parser {
         return .{
             .any = any,
             .arena = allocator,
