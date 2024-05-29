@@ -12,9 +12,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
 
     _ = path;
 
-    var counter = std.io.countingReader(inreader);
-    const anyreader = counter.reader().any();
-    var p = Parser.init(alloc, anyreader);
+    var p = Parser.init(alloc, inreader.any());
     defer p.temp.deinit(alloc);
     defer p.strings_map.deinit(alloc);
     errdefer p.extras.deinit(alloc);
