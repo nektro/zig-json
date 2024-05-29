@@ -3,7 +3,6 @@ const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
 
-const buf_size = 64;
 const Error = std.mem.Allocator.Error;
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
@@ -14,8 +13,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
     _ = path;
 
     var counter = std.io.countingReader(inreader);
-    var buf = std.io.bufferedReader(counter.reader());
-    const anyreader = extras.AnyReader.from(buf.reader());
+    const anyreader = extras.AnyReader.from(counter.reader());
     var p = Parser.init(alloc, anyreader);
     defer p.temp.deinit(alloc);
     defer p.strings_map.deinit(alloc);
@@ -265,16 +263,15 @@ const Parser = struct {
 
     fn peekAmt(p: *Parser, amt: usize) !void {
         if (p.avail() >= amt) return;
+        const buf_size = std.mem.page_size;
         const diff_amt = amt - p.avail();
         std.debug.assert(diff_amt <= buf_size);
         var buf: [buf_size]u8 = undefined;
-        var target_buf = buf[0..diff_amt];
-        const len = try p.any.readAll(target_buf);
+        const len = try p.any.readAll(&buf);
         if (len == 0) p.end = true;
         if (len == 0) return error.EndOfStream;
-        std.debug.assert(len <= diff_amt);
-        try p.temp.appendSlice(p.arena, target_buf[0..len]);
-        if (len != diff_amt) return error.EndOfStream;
+        try p.temp.appendSlice(p.arena, buf[0..len]);
+        if (amt > len) return error.EndOfStream;
     }
 
     pub fn eatByte(p: *Parser, test_c: u8) !?u8 {
