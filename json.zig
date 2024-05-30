@@ -251,7 +251,7 @@ const Parser = struct {
             _ = try p.eatByte(test_s[0]);
             return;
         }
-        try p.peekAmt(test_s.len);
+        try p.peekAmt(test_s.len) orelse return null;
         if (std.mem.eql(u8, p.slice()[0..test_s.len], test_s)) {
             p.idx += test_s.len;
             return;
@@ -259,7 +259,7 @@ const Parser = struct {
         return null;
     }
 
-    fn peekAmt(p: *Parser, amt: usize) !void {
+    fn peekAmt(p: *Parser, amt: usize) !?void {
         if (p.avail() >= amt) return;
         const buf_size = std.mem.page_size;
         const diff_amt = amt - p.avail();
@@ -267,16 +267,16 @@ const Parser = struct {
         var buf: [buf_size]u8 = undefined;
         const len = try p.any.readAll(&buf);
         if (len == 0) p.end = true;
-        if (len == 0) return error.EndOfStream;
+        if (len == 0) return null;
         try p.temp.appendSlice(p.arena, buf[0..len]);
-        if (amt > len) return error.EndOfStream;
+        if (amt > len) return null;
     }
 
     pub fn eatByte(p: *Parser, test_c: u8) !?u8 {
         const t = tracer.trace(@src(), " '{c}'", .{test_c});
         defer t.end();
 
-        try p.peekAmt(1);
+        try p.peekAmt(1) orelse return null;
         if (p.slice()[0] == test_c) {
             p.idx += 1;
             return test_c;
@@ -288,7 +288,7 @@ const Parser = struct {
         const t = tracer.trace(@src(), " ({d},{d})", .{ from, to });
         defer t.end();
 
-        try p.peekAmt(1);
+        try p.peekAmt(1) orelse return null;
         if (p.slice()[0] >= from and p.slice()[0] <= to) {
             defer p.idx += 1;
             return p.slice()[0];
@@ -301,7 +301,7 @@ const Parser = struct {
         defer t.end();
 
         std.debug.assert(extras.matchesAll(u8, test_s, std.ascii.isASCII));
-        try p.peekAmt(1);
+        try p.peekAmt(1) orelse return null;
         if (std.mem.indexOfScalar(u8, test_s, p.slice()[0])) |idx| {
             p.idx += 1;
             return test_s[idx];
@@ -310,15 +310,15 @@ const Parser = struct {
     }
 
     pub fn shift(p: *Parser) !u21 {
-        try p.peekAmt(1);
+        try p.peekAmt(1) orelse return error.EndOfStream;
         const len = try std.unicode.utf8ByteSequenceLength(p.slice()[0]);
-        try p.peekAmt(len);
+        try p.peekAmt(len) orelse return error.EndOfStream;
         defer p.idx += len;
         return std.unicode.utf8Decode(p.slice()[0..len]);
     }
 
     pub fn shiftBytesN(p: *Parser, comptime n: usize) ![n]u8 {
-        try p.peekAmt(n);
+        try p.peekAmt(n) orelse return error.EndOfStream;
         defer p.idx += n;
         return p.slice()[0..n].*;
     }
