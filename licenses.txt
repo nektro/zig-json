@@ -3,3 +3,4 @@ MIT:
 - This
 - git https://github.com/nektro/zig-extras
 - git https://github.com/nektro/zig-tracer
+- git https://github.com/nst/JSONTestSuite
