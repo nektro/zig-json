@@ -1,4 +1,4 @@
-/.zigmod
-/deps.zig
-/zig-*
+.zigmod
+deps.zig
+zig-*
 zigmod.lock
