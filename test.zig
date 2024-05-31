@@ -440,7 +440,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_number_invalid-negative-real.jso
 test { try expectFail(JSONTestSuite_root ++ "/n_number_invalid-utf-8-in-bigger-int.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_number_invalid-utf-8-in-exponent.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_number_invalid-utf-8-in-int.json"); }
-test { try expectFail(JSONTestSuite_root ++ "/n_number_ ++ .json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_number_++.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_number_minus_infinity.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_number_minus_sign_with_trailing_garbage.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_number_minus_space_1.json"); }
