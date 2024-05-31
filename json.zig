@@ -138,6 +138,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             break;
         }
         if (c != '\\') {
+            if (c < 0x20) return error.JsonExpectedTODO;
             const l = std.unicode.utf8CodepointSequenceLength(c) catch unreachable;
             const b = p.temp.items[p.idx - l ..][0..l];
             try characters.appendSlice(b);
