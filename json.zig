@@ -134,7 +134,9 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             break;
         }
         if (c != '\\') {
-            try characters.append(@intCast(c));
+            const l = std.unicode.utf8CodepointSequenceLength(c) catch unreachable;
+            const b = p.temp.items[p.idx - l ..][0..l];
+            try characters.appendSlice(b);
             continue;
         }
         switch (try p.shift()) {
