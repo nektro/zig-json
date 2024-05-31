@@ -174,11 +174,11 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         try characters.append(c);
 
         if (try p.eatByte('0')) |_| {
-            return try p.addNumber(alloc, "-0");
+            if (p.slice()[0] != '.') return try p.addNumber(alloc, "-0");
         }
     }
     if (try p.eatByte('0')) |_| {
-        return try p.addNumber(alloc, "0");
+        if (p.slice()[0] != '.') return try p.addNumber(alloc, "0");
     }
     while (try p.eatRange('0', '9')) |d| {
         try characters.append(d);
