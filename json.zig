@@ -196,7 +196,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     }
     if (try p.eatAnyScalar("eE")) |_| {
         try characters.append('e');
-        try characters.append(try p.eatAnyScalar("+-") orelse return error.JsonExpectedTODO);
+        try characters.append(try p.eatAnyScalar("+-") orelse '+');
         const l = characters.items.len;
         while (try p.eatRange('0', '9')) |d| {
             try characters.append(d);
