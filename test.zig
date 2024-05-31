@@ -384,7 +384,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_array_comma_and_number.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_double_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_double_extra_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_extra_close.json"); }
-test { try expectFail(JSONTestSuite_root ++ "/n_array_extra_comma.json"); }
+test { try expectPass(JSONTestSuite_root ++ "/n_array_extra_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_incomplete_invalid_value.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_incomplete.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_inner_array_no_comma.json"); }
@@ -394,7 +394,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_array_just_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_just_minus.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_missing_value.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_newlines_unclosed.json"); }
-test { try expectFail(JSONTestSuite_root ++ "/n_array_number_and_comma.json"); }
+test { try expectPass(JSONTestSuite_root ++ "/n_array_number_and_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_number_and_several_commas.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_spaces_vertical_tab_formfeed.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_star_inside.json"); }
@@ -475,7 +475,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_object_non_string_key.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_repeated_null_null.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_several_trailing_commas.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_single_quote.json"); }
-test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comma.json"); }
+test { try expectPass(JSONTestSuite_root ++ "/n_object_trailing_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment_open.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment_slash_open_incomplete.json"); }
