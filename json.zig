@@ -172,13 +172,10 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 
     if (try p.eatByte('-')) |c| {
         try characters.append(c);
-
-        if (try p.eatByte('0')) |_| {
-            if (p.slice()[0] != '.') return try p.addNumber(alloc, "-0");
-        }
     }
-    if (try p.eatByte('0')) |_| {
-        if (p.slice()[0] != '.') return try p.addNumber(alloc, "0");
+    if (try p.eatByte('0')) |c| {
+        try characters.append(c);
+        if (try p.eatRange('1', '9')) |_| return error.JsonExpectedTODO;
     }
     while (try p.eatRange('0', '9')) |d| {
         try characters.append(d);
