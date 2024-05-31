@@ -25,9 +25,13 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
     _ = try p.addStr(alloc, "");
 
+    const root = try parseElement(alloc, &p);
+    if (p.avail() > 0) return error.JsonExpectedTODO;
+    const data = try p.extras.toOwnedSlice(alloc);
+
     return .{
-        .root = try parseElement(alloc, &p),
-        .extras = try p.extras.toOwnedSlice(alloc),
+        .root = root,
+        .extras = data,
     };
 }
 
