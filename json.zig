@@ -190,6 +190,9 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     if (characters.items.len == 0) {
         return null;
     }
+    if (characters.items.len == 1 and characters.items[0] == '-') {
+        return error.JsonExpectedTODO;
+    }
     if (try p.eatByte('.')) |c| {
         try characters.append(c);
         const l = characters.items.len;
@@ -207,7 +210,6 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         }
         if (characters.items.len == l) return error.JsonExpectedTODO;
     }
-    if (characters.items.len == 1 and characters.items[0] == '-') return error.JsonExpectedTODO;
 
     return try p.addNumber(alloc, characters.items);
 }
