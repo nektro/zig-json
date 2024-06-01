@@ -353,6 +353,7 @@ const Parser = struct {
         return p.slice()[0..n].*;
     }
 
+    // tag(u8) + len(u32) + member_keys(N * u32) + member_values(N * u32)
     pub fn addObject(p: *Parser, alloc: std.mem.Allocator, members: *const ObjectHashMap) !ValueIndex {
         const t = tracer.trace(@src(), "({d})", .{members.entries.len});
         defer t.end();
@@ -368,6 +369,7 @@ const Parser = struct {
         return @enumFromInt(r);
     }
 
+    // tag(u8) + len(u32) + items(N * u32)
     pub fn addArray(p: *Parser, alloc: std.mem.Allocator, items: []const ValueIndex) !ValueIndex {
         const t = tracer.trace(@src(), "({d})", .{items.len});
         defer t.end();
@@ -382,6 +384,7 @@ const Parser = struct {
         return @enumFromInt(r);
     }
 
+    // tag(u8) + len(u32) + bytes(N)
     pub fn addStr(p: *Parser, alloc: std.mem.Allocator, str: string) !StringIndex {
         const t = tracer.trace(@src(), "({d})", .{str.len});
         defer t.end();
