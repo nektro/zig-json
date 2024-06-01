@@ -353,7 +353,7 @@ const Parser = struct {
         return p.slice()[0..n].*;
     }
 
-    pub fn addObject(p: *Parser, alloc: std.mem.Allocator, members: *ObjectHashMap) !ValueIndex {
+    pub fn addObject(p: *Parser, alloc: std.mem.Allocator, members: *const ObjectHashMap) !ValueIndex {
         const t = tracer.trace(@src(), "({d})", .{members.entries.len});
         defer t.end();
 
