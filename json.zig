@@ -470,6 +470,19 @@ pub const ValueIndex = enum(u32) {
     _,
 };
 
+pub const Value = union(enum(u8)) {
+    zero,
+    null,
+    true,
+    false,
+    object: ObjectIndex,
+    array: ArrayIndex,
+    string: StringIndex,
+    number: NumberIndex,
+
+    const Tag = std.meta.Tag(@This());
+};
+
 pub const StringIndex = enum(u32) {
     _,
 };
@@ -484,17 +497,4 @@ pub const ObjectIndex = enum(u32) {
 
 pub const NumberIndex = enum(u32) {
     _,
-};
-
-pub const Value = union(enum(u8)) {
-    zero,
-    null,
-    true,
-    false,
-    object: ObjectIndex,
-    array: ArrayIndex,
-    string: StringIndex,
-    number: NumberIndex,
-
-    const Tag = std.meta.Tag(@This());
 };
