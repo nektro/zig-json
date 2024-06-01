@@ -454,8 +454,8 @@ pub const Document = struct {
     extras: []const u8,
     root: ValueIndex,
 
-    pub fn deinit(doc: *const Document, alloc: std.mem.Allocator) void {
-        alloc.free(doc.extras);
+    pub fn deinit(this: *const Document, alloc: std.mem.Allocator) void {
+        alloc.free(this.extras);
     }
 };
 
