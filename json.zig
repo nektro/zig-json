@@ -471,15 +471,15 @@ pub const NumberIndex = enum(u32) {
     _,
 };
 
-pub const Value = union(enum) {
+pub const Value = union(enum(u8)) {
     zero,
     null,
     true,
     false,
-    object,
-    array,
-    string,
-    number,
+    object: ObjectIndex,
+    array: ArrayIndex,
+    string: StringIndex,
+    number: NumberIndex,
 
     const Tag = std.meta.Tag(@This());
 };
