@@ -24,6 +24,8 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
     p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
     _ = try p.addStr(alloc, "");
+    std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
+    std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
 
     const root = try parseElement(alloc, &p);
     if (p.avail() > 0) return error.JsonExpectedTODO;
@@ -79,7 +81,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer members.deinit(alloc_local);
 
     if (try p.eatByte('}')) |_| {
-        return try p.addObject(alloc, &members);
+        return .empty_object;
     }
     while (true) {
         const key = try parseString(alloc, p) orelse return error.JsonExpectedObjectKey;
@@ -96,6 +98,9 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         try parseWs(p);
         if (!p.support_trailing_commas) continue;
         if (try p.eatByte('}')) |_| break;
+    }
+    if (members.entries.len == 0) {
+        return .empty_object;
     }
     return try p.addObject(alloc, &members);
 }
@@ -117,7 +122,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer elements.deinit(alloc_local);
 
     if (try p.eatByte(']')) |_| {
-        return try p.addArray(alloc, elements.items);
+        return .empty_array;
     }
     while (true) {
         const elem = try parseValue(alloc, p);
@@ -130,6 +135,9 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         try parseWs(p);
         if (!p.support_trailing_commas) continue;
         if (try p.eatByte(']')) |_| break;
+    }
+    if (elements.items.len == 0) {
+        return .empty_array;
     }
     return try p.addArray(alloc, elements.items);
 }
@@ -452,6 +460,13 @@ pub const Document = struct {
 };
 
 pub const ValueIndex = enum(u32) {
+    zero = 0,
+    null = 1,
+    true = 2,
+    false = 3,
+    empty_string = 4,
+    empty_array = 9,
+    empty_object = 14,
     _,
 };
 
