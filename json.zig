@@ -6,13 +6,13 @@ const tracer = @import("tracer");
 const Error = std.mem.Allocator.Error;
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
-pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype) anyerror!Document {
+pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) anyerror!Document {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
     _ = path;
 
-    var p = Parser.init(alloc, inreader.any());
+    var p = Parser.init(alloc, inreader.any(), options);
     defer p.temp.deinit(alloc);
     defer p.strings_map.deinit(alloc);
     errdefer p.extras.deinit(alloc);
@@ -66,17 +66,22 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
+    p.depth += 1;
+    defer p.depth -= 1;
+    if (p.depth > p.maximum_depth) return error.JsonExpectedTODO;
+
     _ = try p.eatByte('{') orelse return null;
+    try parseWs(p);
 
     var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
     const alloc_local = sfa.get();
     var members = ObjectHashMap{};
     defer members.deinit(alloc_local);
 
+    if (try p.eatByte('}')) |_| {
+        return try p.addObject(alloc, &members);
+    }
     while (true) {
-        try parseWs(p);
-        if (try p.eatByte('}')) |_| break;
-
         const key = try parseString(alloc, p) orelse return error.JsonExpectedObjectKey;
         try parseWs(p);
         _ = try p.eatByte(':') orelse return error.JsonExpectedObjectColon;
@@ -89,6 +94,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
             break;
         };
         try parseWs(p);
+        if (!p.support_trailing_commas) continue;
         if (try p.eatByte('}')) |_| break;
     }
     return try p.addObject(alloc, &members);
@@ -98,17 +104,22 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
+    p.depth += 1;
+    defer p.depth -= 1;
+    if (p.depth > p.maximum_depth) return error.JsonExpectedTODO;
+
     _ = try p.eatByte('[') orelse return null;
+    try parseWs(p);
 
     var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
     const alloc_local = sfa.get();
     var elements = std.ArrayListUnmanaged(ValueIndex){};
     defer elements.deinit(alloc_local);
 
+    if (try p.eatByte(']')) |_| {
+        return try p.addArray(alloc, elements.items);
+    }
     while (true) {
-        try parseWs(p);
-        if (try p.eatByte(']')) |_| break;
-
         const elem = try parseValue(alloc, p);
         try elements.append(alloc_local, elem);
         try parseWs(p);
@@ -117,6 +128,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
             break;
         };
         try parseWs(p);
+        if (!p.support_trailing_commas) continue;
         if (try p.eatByte(']')) |_| break;
     }
     return try p.addArray(alloc, elements.items);
@@ -237,13 +249,24 @@ const Parser = struct {
     col: usize = 1,
     extras: std.ArrayListUnmanaged(u8) = .{},
     strings_map: std.StringArrayHashMapUnmanaged(StringIndex) = .{},
+    depth: u16 = 0,
 
-    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader) Parser {
+    support_trailing_commas: bool,
+    maximum_depth: u16,
+
+    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader, options: Options) Parser {
         return .{
             .any = any,
             .arena = allocator,
+            .support_trailing_commas = options.support_trailing_commas,
+            .maximum_depth = options.maximum_depth,
         };
     }
+
+    pub const Options = struct {
+        support_trailing_commas: bool,
+        maximum_depth: u16,
+    };
 
     pub fn avail(p: *Parser) usize {
         return p.temp.items.len - p.idx;

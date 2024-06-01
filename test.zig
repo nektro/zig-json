@@ -4,7 +4,7 @@ const json = @import("json");
 fn parse_full(buffer: []const u8) !void {
     const alloc = std.testing.allocator;
     var fbs = std.io.fixedBufferStream(buffer);
-    var doc = try json.parse(alloc, "", fbs.reader());
+    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
     defer doc.deinit(alloc);
 }
 
@@ -264,7 +264,7 @@ fn expectPass(path: []const u8) !void {
     const alloc = std.testing.allocator;
     var file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
-    var doc = try json.parse(alloc, path, file.reader());
+    var doc = try json.parse(alloc, path, file.reader(), .{ .support_trailing_commas = false, .maximum_depth = 100 });
     defer doc.deinit(alloc);
 }
 
@@ -370,7 +370,7 @@ fn expectFail(path: []const u8) !void {
     const alloc = std.testing.allocator;
     var file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
-    var doc = json.parse(alloc, path, file.reader()) catch return;
+    var doc = json.parse(alloc, path, file.reader(), .{ .support_trailing_commas = false, .maximum_depth = 100 }) catch return;
     defer doc.deinit(alloc);
     try std.testing.expect(false);
 }
@@ -384,7 +384,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_array_comma_and_number.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_double_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_double_extra_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_extra_close.json"); }
-test { try expectPass(JSONTestSuite_root ++ "/n_array_extra_comma.json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_array_extra_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_incomplete_invalid_value.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_incomplete.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_inner_array_no_comma.json"); }
@@ -394,7 +394,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_array_just_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_just_minus.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_missing_value.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_newlines_unclosed.json"); }
-test { try expectPass(JSONTestSuite_root ++ "/n_array_number_and_comma.json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_array_number_and_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_number_and_several_commas.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_spaces_vertical_tab_formfeed.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_array_star_inside.json"); }
@@ -475,7 +475,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_object_non_string_key.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_repeated_null_null.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_several_trailing_commas.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_single_quote.json"); }
-test { try expectPass(JSONTestSuite_root ++ "/n_object_trailing_comma.json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comma.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment_open.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_object_trailing_comment_slash_open_incomplete.json"); }
@@ -515,7 +515,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_string_unescaped_newline.json");
 test { try expectFail(JSONTestSuite_root ++ "/n_string_unescaped_tab.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_string_unicode_CapitalU.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_string_with_trailing_garbage.json"); }
-// test { try expectFail(JSONTestSuite_root ++ "/n_structure_100000_opening_arrays.json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_structure_100000_opening_arrays.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_angle_bracket_..json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_angle_bracket_null.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_array_trailing_garbage.json"); }
@@ -539,7 +539,7 @@ test { try expectFail(JSONTestSuite_root ++ "/n_structure_object_with_comment.js
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_object_with_trailing_garbage.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_apostrophe.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_comma.json"); }
-// test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_object.json"); }
+test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_object.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_open_object.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_open_string.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_open_array_string.json"); }
