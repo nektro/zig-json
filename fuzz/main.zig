@@ -1,15 +1,7 @@
 const std = @import("std");
 const json = @import("json");
 
-comptime {
-    @export(cMain, .{ .name = "main", .linkage = .strong });
-}
-
-fn cMain() callconv(.C) void {
-    main();
-}
-
-pub fn main() void {
+pub export fn main() void {
     // Setup an allocator that will detect leaks/use-after-free/etc
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     // this will check for leaks and crash the program if it finds any
@@ -20,6 +12,6 @@ pub fn main() void {
     const stdin = std.io.getStdIn();
 
     // Try to parse the data
-    var parsed = json.parse(allocator, "[stdin]", stdin.reader()) catch return;
+    var parsed = json.parse(allocator, "[stdin]", stdin.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 }) catch return;
     defer parsed.deinit(allocator);
 }
