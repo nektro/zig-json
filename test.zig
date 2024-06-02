@@ -565,3 +565,58 @@ test { try expectFail(JSONTestSuite_root ++ "/n_structure_UTF8_BOM_no_data.json"
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_whitespace_formfeed.json"); }
 test { try expectFail(JSONTestSuite_root ++ "/n_structure_whitespace_U+2060_word_joiner.json"); }
 // zig fmt: on
+
+fn expectCanonical(buffer: []const u8) !void {
+    const alloc = std.testing.allocator;
+    var fbs = std.io.fixedBufferStream(buffer);
+    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
+    defer doc.deinit(alloc);
+    doc.acquire();
+    defer doc.release();
+    try std.testing.expectFmt(buffer, "{}", .{doc});
+}
+
+// zig fmt: off
+test { try expectCanonical("{}"); }
+test { try expectCanonical("[]"); }
+test { try expectCanonical("\"aba\""); }
+test { try expectCanonical("4.3"); }
+test { try expectCanonical("true"); }
+test { try expectCanonical("false"); }
+test { try expectCanonical("null"); }
+test { try expectCanonical("[7,8,9]"); }
+// zig fmt: on
+
+test {
+    const alloc = std.testing.allocator;
+    var fbs = std.io.fixedBufferStream(
+        \\["abc",456,"ghi",{"foo":"bar"}]
+    );
+    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
+    defer doc.deinit(alloc);
+    doc.acquire();
+    defer doc.release();
+
+    const a = doc.root.array();
+    try std.testing.expectEqual(4, a.len);
+    try std.testing.expectEqualStrings("abc", a[0].string());
+    try std.testing.expectEqual(456, a[1].number().get(u16));
+    try std.testing.expectEqualStrings("ghi", a[2].string());
+    try std.testing.expectEqualStrings("bar", a[3].object().getS("foo").?);
+}
+
+test {
+    try expectCanonical(
+        \\{"asd":"sdf","dfg":"fgh"}
+    );
+}
+test {
+    try expectCanonical(
+        \\{"min":-1.0e+28,"max":1.0e+28}
+    );
+}
+test {
+    try expectCanonical(
+        \\[{"type":"interface","name":"A","inheritance":null,"members":[{"type":"operation","name":"toWord","idlType":{"type":"return-type","extAttrs":[],"generic":"","nullable":false,"union":false,"idlType":"DOMString"},"arguments":[{"type":"argument","name":"index","extAttrs":[],"idlType":{"type":"argument-type","extAttrs":[],"generic":"","nullable":false,"union":false,"idlType":"unsigned long"},"default":null,"optional":false,"variadic":false}],"extAttrs":[],"special":"getter"}],"extAttrs":[{"type":"extended-attribute","name":"Exposed","rhs":{"type":"identifier","value":"Window"},"arguments":[]}],"partial":false}]
+    );
+}

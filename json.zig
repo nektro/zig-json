@@ -476,12 +476,30 @@ const Parser = struct {
     }
 };
 
+pub threadlocal var doc: ?*const Document = null;
+
 pub const Document = struct {
     extras: []const u8,
     root: ValueIndex,
 
     pub fn deinit(this: *const Document, alloc: std.mem.Allocator) void {
         alloc.free(this.extras);
+    }
+
+    pub fn acquire(this: *const Document) void {
+        std.debug.assert(doc == null);
+        doc = this;
+    }
+
+    pub fn release(this: *const Document) void {
+        std.debug.assert(doc == this);
+        doc = null;
+    }
+
+    pub fn format(this: *const Document, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        return std.fmt.format(writer, "{}", .{this.root});
     }
 };
 
@@ -494,6 +512,47 @@ pub const ValueIndex = enum(u32) {
     empty_array = 9,
     empty_object = 14,
     _,
+
+    pub fn format(this: ValueIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        return std.fmt.format(writer, "{}", .{this.v()});
+    }
+
+    pub fn v(this: ValueIndex) Value {
+        std.debug.assert(this != .zero);
+        return switch (@as(Value.Tag, @enumFromInt(doc.?.extras[@intFromEnum(this)]))) {
+            .zero => .zero,
+            .null => .null,
+            .true => .true,
+            .false => .false,
+            inline .object, .array, .string, .number => |t| @unionInit(Value, @tagName(t), @enumFromInt(@intFromEnum(this))),
+        };
+    }
+
+    pub fn string(this: ValueIndex) []const u8 {
+        return this.v().string.to();
+    }
+
+    pub fn array(this: ValueIndex) []align(1) const ValueIndex {
+        return this.v().array.to();
+    }
+
+    pub fn object(this: ValueIndex) ObjectIndex {
+        return this.v().object;
+    }
+
+    pub fn number(this: ValueIndex) NumberIndex {
+        return this.v().number;
+    }
+
+    pub fn boolean(this: ValueIndex) bool {
+        return switch (this) {
+            .true => true,
+            .false => false,
+            else => unreachable,
+        };
+    }
 };
 
 pub const Value = union(enum(u8)) {
@@ -507,20 +566,146 @@ pub const Value = union(enum(u8)) {
     number: NumberIndex,
 
     const Tag = std.meta.Tag(@This());
+
+    pub fn format(this: Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = options;
+        _ = fmt;
+        return switch (this) {
+            .zero => unreachable,
+            .null => std.fmt.format(writer, "null", .{}),
+            .true => std.fmt.format(writer, "true", .{}),
+            .false => std.fmt.format(writer, "false", .{}),
+            inline .object, .array, .string, .number => |t| std.fmt.format(writer, "{}", .{t}),
+        };
+    }
 };
 
 pub const StringIndex = enum(u32) {
     _,
+
+    pub fn format(this: StringIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = options;
+        _ = fmt;
+        try writer.writeAll("\"");
+        try writer.writeAll(this.to());
+        try writer.writeAll("\"");
+    }
+
+    pub fn to(this: StringIndex) []const u8 {
+        var d = doc.?.extras.ptr[@intFromEnum(this)..];
+        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .string);
+        const len: u32 = @bitCast(d[1..5].*);
+        return d[5..][0..len];
+    }
 };
 
 pub const ArrayIndex = enum(u32) {
     _,
+
+    pub fn format(this: ArrayIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = options;
+        _ = fmt;
+
+        const items = this.to();
+        try writer.writeAll("[");
+        for (items, 0..) |item, i| {
+            if (i > 0) try writer.writeAll(",");
+            try writer.print("{}", .{item});
+        }
+        try writer.writeAll("]");
+    }
+
+    pub fn to(this: ArrayIndex) []align(1) const ValueIndex {
+        var d = doc.?.extras.ptr[@intFromEnum(this)..];
+        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .array);
+        const len: u32 = @bitCast(d[1..5].*);
+        const e: [*]align(1) const ValueIndex = @ptrCast(d[5..]);
+        return e[0..len];
+    }
 };
 
 pub const ObjectIndex = enum(u32) {
     _,
+
+    pub fn format(this: ObjectIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = options;
+        _ = fmt;
+        const keys, const values = this.to();
+        try writer.writeAll("{");
+        for (keys, values, 0..) |k, v, i| {
+            if (i > 0) try writer.writeAll(",");
+            try writer.print("{}", .{k});
+            try writer.writeAll(":");
+            try writer.print("{}", .{v});
+        }
+        try writer.writeAll("}");
+    }
+
+    pub fn to(this: ObjectIndex) struct { []align(1) const StringIndex, []align(1) const ValueIndex } {
+        var d = doc.?.extras.ptr[@intFromEnum(this)..];
+        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .object);
+        const len: u32 = @bitCast(d[1..5].*);
+        const k: [*]align(1) const StringIndex = @ptrCast(d[5..]);
+        const v: [*]align(1) const ValueIndex = @ptrCast(k + len);
+        return .{ k[0..len], v[0..len] };
+    }
+
+    pub fn get(this: ObjectIndex, needle: []const u8, comptime tag: Value.Tag) ?ValueIndex {
+        const keys, const values = this.to();
+        for (keys, values) |k, v| {
+            if (std.mem.eql(u8, needle, k.to())) {
+                if (v.v() == tag) {
+                    return v;
+                }
+            }
+        }
+        return null;
+    }
+
+    pub fn getO(this: ObjectIndex, needle: []const u8) ?ObjectIndex {
+        return if (this.get(needle, .object)) |v| v.object() else null;
+    }
+
+    pub fn getA(this: ObjectIndex, needle: []const u8) ?[]align(1) const ValueIndex {
+        return if (this.get(needle, .array)) |v| v.array() else null;
+    }
+
+    pub fn getS(this: ObjectIndex, needle: []const u8) ?[]const u8 {
+        return if (this.get(needle, .string)) |v| v.string() else null;
+    }
+
+    pub fn getN(this: ObjectIndex, needle: []const u8) ?NumberIndex {
+        return if (this.get(needle, .number)) |v| v.number() else null;
+    }
+
+    pub fn getB(this: ObjectIndex, needle: []const u8) ?bool {
+        if (this.get(needle, .true)) |v| return v.boolean();
+        if (this.get(needle, .false)) |v| return v.boolean();
+        return null;
+    }
 };
 
 pub const NumberIndex = enum(u32) {
     _,
+
+    pub fn format(this: NumberIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = options;
+        _ = fmt;
+        try writer.writeAll(this.to());
+    }
+
+    pub fn to(this: NumberIndex) []const u8 {
+        var d = doc.?.extras.ptr[@intFromEnum(this)..];
+        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .number);
+        const len: u32 = @bitCast(d[1..5].*);
+        return d[5..][0..len];
+    }
+
+    pub fn get(this: NumberIndex, comptime T: type) T {
+        return switch (@typeInfo(T)) {
+            .Int => std.fmt.parseInt(T, this.to(), 10) catch unreachable,
+            .Float => std.fmt.parseFloat(T, this.to()) catch unreachable,
+            else => @compileError("not a number type"),
+        };
+    }
 };
