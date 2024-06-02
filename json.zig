@@ -654,6 +654,9 @@ pub const ObjectIndex = enum(u32) {
         const keys, const values = this.to();
         for (keys, values) |k, v| {
             if (std.mem.eql(u8, needle, k.to())) {
+                if (v.v() == .null) {
+                    return null;
+                }
                 if (v.v() == tag) {
                     return v;
                 }
