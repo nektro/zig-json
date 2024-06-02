@@ -15,6 +15,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     var p = Parser.init(alloc, inreader.any(), options);
     defer p.temp.deinit(alloc);
     defer p.strings_map.deinit(alloc);
+    defer p.numbers_map.deinit(alloc);
     errdefer p.extras.deinit(alloc);
 
     comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
@@ -257,6 +258,7 @@ const Parser = struct {
     col: usize = 1,
     extras: std.ArrayListUnmanaged(u8) = .{},
     strings_map: std.StringArrayHashMapUnmanaged(StringIndex) = .{},
+    numbers_map: std.StringArrayHashMapUnmanaged(NumberIndex) = .{},
     depth: u16 = 0,
 
     support_trailing_commas: bool,
@@ -432,15 +434,39 @@ const Parser = struct {
         const t = tracer.trace(@src(), "({s})", .{v});
         defer t.end();
 
+        const adapter: AdapterNum = .{ .p = p };
+        const res = try p.numbers_map.getOrPutAdapted(alloc, v, adapter);
+        if (res.found_existing) return @enumFromInt(@intFromEnum(res.value_ptr.*));
+        errdefer p.numbers_map.orderedRemoveAt(res.index);
         const r = p.extras.items.len;
         const l = v.len;
-        if (l > std.math.maxInt(u8)) return error.JsonExpectedTODO;
-        try p.extras.ensureUnusedCapacity(alloc, 1 + 1 + l);
+        try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + l);
         p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.number));
-        p.extras.appendAssumeCapacity(@intCast(l));
+        p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
         p.extras.appendSliceAssumeCapacity(v);
+        res.value_ptr.* = @enumFromInt(r);
         return @enumFromInt(r);
     }
+
+    const AdapterNum = struct {
+        p: *const Parser,
+
+        pub fn hash(ctx: @This(), a: string) u32 {
+            _ = ctx;
+            var hasher = std.hash.Wyhash.init(0);
+            hasher.update(a);
+            return @truncate(hasher.final());
+        }
+
+        pub fn eql(ctx: @This(), a: string, _: string, b_index: usize) bool {
+            const sidx = ctx.p.numbers_map.values()[b_index];
+            const i: u32 = @intFromEnum(sidx);
+            std.debug.assert(@as(Value.Tag, @enumFromInt(ctx.p.extras.items[i])) == .number);
+            const l: u32 = @bitCast(ctx.p.extras.items[i..][1..][0..4].*);
+            const b = ctx.p.extras.items[i..][1..][4..][0..l];
+            return std.mem.eql(u8, a, b);
+        }
+    };
 
     pub fn getStr(p: *const Parser, sidx: StringIndex) string {
         const i: u32 = @intFromEnum(sidx);
