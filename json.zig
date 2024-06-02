@@ -3,10 +3,10 @@ const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
 
-const Error = std.mem.Allocator.Error;
+const Error = std.mem.Allocator.Error || error{ MalformedJson, EndOfStream };
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
-pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) anyerror!Document {
+pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) (@TypeOf(inreader).Error || Error)!Document {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
@@ -28,8 +28,8 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
     std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
 
-    const root = try parseElement(alloc, &p);
-    if (p.avail() > 0) return error.JsonExpectedTODO;
+    const root = parseElement(alloc, &p) catch |err| return @errorCast(err);
+    if (p.avail() > 0) return error.MalformedJson;
     const data = try p.extras.toOwnedSlice(alloc);
 
     return .{
@@ -62,7 +62,7 @@ fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
     if (try parseString(alloc, p)) |v| return @enumFromInt(@intFromEnum(v));
     if (try parseArray(alloc, p)) |v| return v;
     if (try parseObject(alloc, p)) |v| return v;
-    return error.JsonExpectedValue;
+    return error.MalformedJson;
 }
 
 fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
@@ -71,7 +71,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 
     p.depth += 1;
     defer p.depth -= 1;
-    if (p.depth > p.maximum_depth) return error.JsonExpectedTODO;
+    if (p.depth > p.maximum_depth) return error.MalformedJson;
 
     _ = try p.eatByte('{') orelse return null;
     try parseWs(p);
@@ -85,15 +85,15 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         return .empty_object;
     }
     while (true) {
-        const key = try parseString(alloc, p) orelse return error.JsonExpectedObjectKey;
+        const key = try parseString(alloc, p) orelse return error.MalformedJson;
         try parseWs(p);
-        _ = try p.eatByte(':') orelse return error.JsonExpectedObjectColon;
+        _ = try p.eatByte(':') orelse return error.MalformedJson;
         try parseWs(p);
         const value = try parseValue(alloc, p);
         try members.put(alloc_local, key, value);
         try parseWs(p);
         _ = try p.eatByte(',') orelse {
-            _ = try p.eatByte('}') orelse return error.JsonExpectedTODO;
+            _ = try p.eatByte('}') orelse return error.MalformedJson;
             break;
         };
         try parseWs(p);
@@ -112,7 +112,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 
     p.depth += 1;
     defer p.depth -= 1;
-    if (p.depth > p.maximum_depth) return error.JsonExpectedTODO;
+    if (p.depth > p.maximum_depth) return error.MalformedJson;
 
     _ = try p.eatByte('[') orelse return null;
     try parseWs(p);
@@ -130,7 +130,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         try elements.append(alloc_local, elem);
         try parseWs(p);
         _ = try p.eatByte(',') orelse {
-            _ = try p.eatByte(']') orelse return error.JsonExpectedTODO;
+            _ = try p.eatByte(']') orelse return error.MalformedJson;
             break;
         };
         try parseWs(p);
@@ -159,7 +159,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             break;
         }
         if (c != '\\') {
-            if (c < 0x20) return error.JsonExpectedTODO;
+            if (c < 0x20) return error.MalformedJson;
             const l = std.unicode.utf8CodepointSequenceLength(c) catch unreachable;
             const b = p.temp.items[p.idx - l ..][0..l];
             try characters.appendSlice(b);
@@ -175,16 +175,16 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             'u' => {
                 var o: u32 = 0;
                 var d = try p.shiftBytesN(4);
-                if (!extras.matchesAll(u8, &d, std.ascii.isHex)) return error.JsonExpectedTODO;
+                if (!extras.matchesAll(u8, &d, std.ascii.isHex)) return error.MalformedJson;
                 d = @bitCast(@byteSwap(@as(u32, @bitCast(d))));
                 for (d, 0..) |e, i| o += (e * std.math.pow(u32, 2, @intCast(i)));
                 //
-                if (o > std.math.maxInt(u21)) return error.JsonExpectedTODO;
+                if (o > std.math.maxInt(u21)) return error.MalformedJson;
                 var b: [4]u8 = undefined;
-                const l = std.unicode.utf8Encode(@intCast(o), &b) catch return error.JsonExpectedTODO;
+                const l = std.unicode.utf8Encode(@intCast(o), &b) catch return error.MalformedJson;
                 try characters.appendSlice(b[0..l]);
             },
-            else => return error.JsonExpectedTODO,
+            else => return error.MalformedJson,
         }
     }
     return try p.addStr(alloc, characters.items);
@@ -203,7 +203,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     }
     if (try p.eatByte('0')) |c| {
         try characters.append(c);
-        if (try p.eatRange('1', '9')) |_| return error.JsonExpectedTODO;
+        if (try p.eatRange('1', '9')) |_| return error.MalformedJson;
     }
     while (try p.eatRange('0', '9')) |d| {
         try characters.append(d);
@@ -212,7 +212,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         return null;
     }
     if (characters.items.len == 1 and characters.items[0] == '-') {
-        return error.JsonExpectedTODO;
+        return error.MalformedJson;
     }
     if (try p.eatByte('.')) |c| {
         try characters.append(c);
@@ -220,7 +220,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         while (try p.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
-        if (characters.items.len == l) return error.JsonExpectedTODO;
+        if (characters.items.len == l) return error.MalformedJson;
     }
     if (try p.eatAnyScalar("eE")) |_| {
         try characters.append('e');
@@ -229,7 +229,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         while (try p.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
-        if (characters.items.len == l) return error.JsonExpectedTODO;
+        if (characters.items.len == l) return error.MalformedJson;
     }
 
     return try p.addNumber(alloc, characters.items);
@@ -370,7 +370,7 @@ const Parser = struct {
 
         const r = p.extras.items.len;
         const l = members.entries.len;
-        if (l > std.math.maxInt(u32)) return error.JsonExpectedTODO;
+        if (l > std.math.maxInt(u32)) return error.MalformedJson;
         try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4 * 2));
         p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.object));
         p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
@@ -386,7 +386,7 @@ const Parser = struct {
 
         const r = p.extras.items.len;
         const l = items.len;
-        if (l > std.math.maxInt(u32)) return error.JsonExpectedTODO;
+        if (l > std.math.maxInt(u32)) return error.MalformedJson;
         try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4));
         p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.array));
         p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
