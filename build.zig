@@ -4,8 +4,6 @@ const deps = @import("./deps.zig");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.option(std.builtin.Mode, "mode", "") orelse .Debug;
-    const use_llvm = b.option(bool, "use_llvm", "") orelse false;
-    const use_lld = b.option(bool, "use_lld", "") orelse false;
 
     const test_exe = b.addTest(.{
         .root_source_file = b.path("test.zig"),
@@ -13,8 +11,6 @@ pub fn build(b: *std.Build) void {
         .optimize = mode,
     });
     deps.addAllTo(test_exe);
-    test_exe.use_llvm = use_llvm;
-    test_exe.use_lld = use_lld;
 
     const test_cmd = b.addRunArtifact(test_exe);
     test_cmd.has_side_effects = true;
