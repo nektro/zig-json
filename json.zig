@@ -535,7 +535,7 @@ pub const ValueIndex = enum(u32) {
         return this.v().string.to();
     }
 
-    pub fn array(this: ValueIndex) []align(1) const ValueIndex {
+    pub fn array(this: ValueIndex) Array {
         return this.v().array.to();
     }
 
@@ -581,6 +581,8 @@ pub const Value = union(enum(u8)) {
     }
 };
 
+pub const Array = []align(1) const ValueIndex;
+
 pub const StringIndex = enum(u32) {
     _,
 
@@ -616,7 +618,7 @@ pub const ArrayIndex = enum(u32) {
         try writer.writeAll("]");
     }
 
-    pub fn to(this: ArrayIndex) []align(1) const ValueIndex {
+    pub fn to(this: ArrayIndex) Array {
         var d = doc.?.extras.ptr[@intFromEnum(this)..];
         std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .array);
         const len: u32 = @bitCast(d[1..5].*);
@@ -642,7 +644,7 @@ pub const ObjectIndex = enum(u32) {
         try writer.writeAll("}");
     }
 
-    pub fn to(this: ObjectIndex) struct { []align(1) const StringIndex, []align(1) const ValueIndex } {
+    pub fn to(this: ObjectIndex) struct { []align(1) const StringIndex, Array } {
         var d = doc.?.extras.ptr[@intFromEnum(this)..];
         std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .object);
         const len: u32 = @bitCast(d[1..5].*);
@@ -670,7 +672,7 @@ pub const ObjectIndex = enum(u32) {
         return if (this.get(needle, .object)) |v| v.object() else null;
     }
 
-    pub fn getA(this: ObjectIndex, needle: []const u8) ?[]align(1) const ValueIndex {
+    pub fn getA(this: ObjectIndex, needle: []const u8) ?Array {
         return if (this.get(needle, .array)) |v| v.array() else null;
     }
 
