@@ -3,7 +3,7 @@ const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
 
-const Error = std.mem.Allocator.Error || error{ MalformedJson, EndOfStream };
+const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
 pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) (@TypeOf(inreader).Error || Error)!Document {
@@ -28,7 +28,8 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
     std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
 
-    const root = parseElement(alloc, &p) catch |err| return @errorCast(err);
+    const root_err: (@TypeOf(inreader).Error || Error)!ValueIndex = @errorCast(parseElement(alloc, &p));
+    const root = try root_err;
     if (p.avail() > 0) return error.MalformedJson;
     const data = try p.extras.toOwnedSlice(alloc);
 
@@ -351,10 +352,10 @@ const Parser = struct {
 
     pub fn shift(p: *Parser) !u21 {
         try p.peekAmt(1) orelse return error.EndOfStream;
-        const len = try std.unicode.utf8ByteSequenceLength(p.slice()[0]);
+        const len = std.unicode.utf8ByteSequenceLength(p.slice()[0]) catch return error.MalformedJson;
         try p.peekAmt(len) orelse return error.EndOfStream;
         defer p.idx += len;
-        return std.unicode.utf8Decode(p.slice()[0..len]);
+        return std.unicode.utf8Decode(p.slice()[0..len]) catch return error.MalformedJson;
     }
 
     pub fn shiftBytesN(p: *Parser, comptime n: usize) ![n]u8 {
