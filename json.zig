@@ -27,8 +27,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
     std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
 
-    const root_err: (@TypeOf(inreader).Error || Error)!ValueIndex = @errorCast(parseElement(alloc, &p));
-    const root = try root_err;
+    const root = try parseElementPrecise(alloc, &p, @TypeOf(inreader).Error || Error);
     if (p.avail() > 0) return error.MalformedJson;
     const data = try p.parser.data.toOwnedSlice(alloc);
 
@@ -36,6 +35,10 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
         .root = root,
         .extras = data,
     };
+}
+
+fn parseElementPrecise(alloc: std.mem.Allocator, p: *Parser, comptime E: type) E!ValueIndex {
+    return @errorCast(parseElement(alloc, p));
 }
 
 fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
