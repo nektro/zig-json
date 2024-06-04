@@ -2,6 +2,7 @@ const std = @import("std");
 const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
+const intrusive_parser = @import("./intrusive_parser.zig");
 
 const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
@@ -13,17 +14,15 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     _ = path;
 
     var p = Parser.init(alloc, inreader.any(), options);
-    defer p.temp.deinit(alloc);
-    defer p.strings_map.deinit(alloc);
+    defer p.parser.deinit();
     defer p.numbers_map.deinit(alloc);
-    errdefer p.extras.deinit(alloc);
 
     comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
-    try p.extras.ensureUnusedCapacity(alloc, 4096);
-    p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
-    p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
-    p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
-    p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
+    try p.parser.data.ensureUnusedCapacity(alloc, 4096);
+    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
+    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
+    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
+    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
     _ = try p.addStr(alloc, "");
     std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
     std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
@@ -31,7 +30,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     const root_err: (@TypeOf(inreader).Error || Error)!ValueIndex = @errorCast(parseElement(alloc, &p));
     const root = try root_err;
     if (p.avail() > 0) return error.MalformedJson;
-    const data = try p.extras.toOwnedSlice(alloc);
+    const data = try p.parser.data.toOwnedSlice(alloc);
 
     return .{
         .root = root,
@@ -162,7 +161,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
         if (c != '\\') {
             if (c < 0x20) return error.MalformedJson;
             const l = std.unicode.utf8CodepointSequenceLength(c) catch unreachable;
-            const b = p.temp.items[p.idx - l ..][0..l];
+            const b = p.parser.temp.items[p.parser.idx - l ..][0..l];
             try characters.appendSlice(b);
             continue;
         }
@@ -250,15 +249,7 @@ fn parseWs(p: *Parser) !void {
 }
 
 const Parser = struct {
-    any: std.io.AnyReader,
-    arena: std.mem.Allocator,
-    temp: std.ArrayListUnmanaged(u8) = .{},
-    idx: usize = 0,
-    end: bool = false,
-    line: usize = 1,
-    col: usize = 1,
-    extras: std.ArrayListUnmanaged(u8) = .{},
-    strings_map: std.StringArrayHashMapUnmanaged(StringIndex) = .{},
+    parser: intrusive_parser.Parser,
     numbers_map: std.StringArrayHashMapUnmanaged(NumberIndex) = .{},
     depth: u16 = 0,
 
@@ -267,8 +258,7 @@ const Parser = struct {
 
     pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader, options: Options) Parser {
         return .{
-            .any = any,
-            .arena = allocator,
+            .parser = intrusive_parser.Parser.init(allocator, any, @intFromEnum(Value.Tag.string)),
             .support_trailing_commas = options.support_trailing_commas,
             .maximum_depth = options.maximum_depth,
         };
@@ -279,104 +269,21 @@ const Parser = struct {
         maximum_depth: u16,
     };
 
-    pub fn avail(p: *Parser) usize {
-        return p.temp.items.len - p.idx;
-    }
-
-    pub fn slice(p: *Parser) []const u8 {
-        return p.temp.items[p.idx..];
-    }
-
-    pub fn eat(p: *Parser, comptime test_s: string) !?void {
-        if (test_s.len == 1) {
-            _ = try p.eatByte(test_s[0]);
-            return;
-        }
-        try p.peekAmt(test_s.len) orelse return null;
-        if (std.mem.eql(u8, p.slice()[0..test_s.len], test_s)) {
-            p.idx += test_s.len;
-            return;
-        }
-        return null;
-    }
-
-    fn peekAmt(p: *Parser, amt: usize) !?void {
-        if (p.avail() >= amt) return;
-        const buf_size = std.mem.page_size;
-        const diff_amt = amt - p.avail();
-        std.debug.assert(diff_amt <= buf_size);
-        var buf: [buf_size]u8 = undefined;
-        const len = try p.any.readAll(&buf);
-        if (len == 0) p.end = true;
-        if (len == 0) return null;
-        try p.temp.appendSlice(p.arena, buf[0..len]);
-        if (amt > len) return null;
-    }
-
-    pub fn eatByte(p: *Parser, test_c: u8) !?u8 {
-        const t = tracer.trace(@src(), " '{c}'", .{test_c});
-        defer t.end();
-
-        try p.peekAmt(1) orelse return null;
-        if (p.slice()[0] == test_c) {
-            p.idx += 1;
-            return test_c;
-        }
-        return null;
-    }
-
-    pub fn eatRange(p: *Parser, comptime from: u8, comptime to: u8) !?u8 {
-        const t = tracer.trace(@src(), " ({d},{d})", .{ from, to });
-        defer t.end();
-
-        try p.peekAmt(1) orelse return null;
-        if (p.slice()[0] >= from and p.slice()[0] <= to) {
-            defer p.idx += 1;
-            return p.slice()[0];
-        }
-        return null;
-    }
-
-    pub fn eatAnyScalar(p: *Parser, test_s: string) !?u8 {
-        const t = tracer.trace(@src(), " ({s})", .{test_s});
-        defer t.end();
-
-        std.debug.assert(extras.matchesAll(u8, test_s, std.ascii.isASCII));
-        try p.peekAmt(1) orelse return null;
-        if (std.mem.indexOfScalar(u8, test_s, p.slice()[0])) |idx| {
-            p.idx += 1;
-            return test_s[idx];
-        }
-        return null;
-    }
-
-    pub fn shift(p: *Parser) !u21 {
-        try p.peekAmt(1) orelse return error.EndOfStream;
-        const len = std.unicode.utf8ByteSequenceLength(p.slice()[0]) catch return error.MalformedJson;
-        try p.peekAmt(len) orelse return error.EndOfStream;
-        defer p.idx += len;
-        return std.unicode.utf8Decode(p.slice()[0..len]) catch return error.MalformedJson;
-    }
-
-    pub fn shiftBytesN(p: *Parser, comptime n: usize) ![n]u8 {
-        try p.peekAmt(n) orelse return error.EndOfStream;
-        defer p.idx += n;
-        return p.slice()[0..n].*;
-    }
+    pub usingnamespace intrusive_parser.Mixin(@This());
 
     // tag(u8) + len(u32) + member_keys(N * u32) + member_values(N * u32)
     pub fn addObject(p: *Parser, alloc: std.mem.Allocator, members: *const ObjectHashMap) !ValueIndex {
         const t = tracer.trace(@src(), "({d})", .{members.entries.len});
         defer t.end();
 
-        const r = p.extras.items.len;
+        const r = p.parser.data.items.len;
         const l = members.entries.len;
         if (l > std.math.maxInt(u32)) return error.MalformedJson;
-        try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4 * 2));
-        p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.object));
-        p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
-        p.extras.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.keys()));
-        p.extras.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.values()));
+        try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4 * 2));
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.object));
+        p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
+        p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.keys()));
+        p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.values()));
         return @enumFromInt(r);
     }
 
@@ -385,33 +292,19 @@ const Parser = struct {
         const t = tracer.trace(@src(), "({d})", .{items.len});
         defer t.end();
 
-        const r = p.extras.items.len;
+        const r = p.parser.data.items.len;
         const l = items.len;
         if (l > std.math.maxInt(u32)) return error.MalformedJson;
-        try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4));
-        p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.array));
-        p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
-        p.extras.appendSliceAssumeCapacity(std.mem.sliceAsBytes(items));
+        try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4));
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.array));
+        p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
+        p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(items));
         return @enumFromInt(r);
     }
 
     // tag(u8) + len(u32) + bytes(N)
     pub fn addStr(p: *Parser, alloc: std.mem.Allocator, str: string) !StringIndex {
-        const t = tracer.trace(@src(), "({d})", .{str.len});
-        defer t.end();
-
-        const adapter: Adapter = .{ .p = p };
-        const res = try p.strings_map.getOrPutAdapted(alloc, str, adapter);
-        if (res.found_existing) return res.value_ptr.*;
-        errdefer p.strings_map.orderedRemoveAt(res.index);
-        const r = p.extras.items.len;
-        const l = str.len;
-        try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + l);
-        p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.string));
-        p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
-        p.extras.appendSliceAssumeCapacity(str);
-        res.value_ptr.* = @enumFromInt(r);
-        return @enumFromInt(r);
+        return @enumFromInt(try p.parser.addStr(alloc, str));
     }
 
     const Adapter = struct {
@@ -439,12 +332,12 @@ const Parser = struct {
         const res = try p.numbers_map.getOrPutAdapted(alloc, v, adapter);
         if (res.found_existing) return @enumFromInt(@intFromEnum(res.value_ptr.*));
         errdefer p.numbers_map.orderedRemoveAt(res.index);
-        const r = p.extras.items.len;
+        const r = p.parser.data.items.len;
         const l = v.len;
-        try p.extras.ensureUnusedCapacity(alloc, 1 + 4 + l);
-        p.extras.appendAssumeCapacity(@intFromEnum(Value.Tag.number));
-        p.extras.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
-        p.extras.appendSliceAssumeCapacity(v);
+        try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + l);
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.number));
+        p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
+        p.parser.data.appendSliceAssumeCapacity(v);
         res.value_ptr.* = @enumFromInt(r);
         return @enumFromInt(r);
     }
@@ -462,19 +355,12 @@ const Parser = struct {
         pub fn eql(ctx: @This(), a: string, _: string, b_index: usize) bool {
             const sidx = ctx.p.numbers_map.values()[b_index];
             const i: u32 = @intFromEnum(sidx);
-            std.debug.assert(@as(Value.Tag, @enumFromInt(ctx.p.extras.items[i])) == .number);
-            const l: u32 = @bitCast(ctx.p.extras.items[i..][1..][0..4].*);
-            const b = ctx.p.extras.items[i..][1..][4..][0..l];
+            std.debug.assert(@as(Value.Tag, @enumFromInt(ctx.p.parser.data.items[i])) == .number);
+            const l: u32 = @bitCast(ctx.p.parser.data.items[i..][1..][0..4].*);
+            const b = ctx.p.parser.data.items[i..][1..][4..][0..l];
             return std.mem.eql(u8, a, b);
         }
     };
-
-    pub fn getStr(p: *const Parser, sidx: StringIndex) string {
-        const i: u32 = @intFromEnum(sidx);
-        std.debug.assert(@as(Value.Tag, @enumFromInt(p.extras.items[i])) == .string);
-        const l: u32 = @bitCast(p.extras.items[i..][1..][0..4].*);
-        return p.extras.items[i..][1..][4..][0..l];
-    }
 };
 
 pub threadlocal var doc: ?*const Document = null;
