@@ -2,7 +2,7 @@ const std = @import("std");
 const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
-const intrusive_parser = @import("./intrusive_parser.zig");
+const intrusive_parser = @import("intrusive-parser");
 
 const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
 const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
@@ -304,6 +304,9 @@ const Parser = struct {
 
     // tag(u8) + len(u32) + bytes(N)
     pub fn addStr(p: *Parser, alloc: std.mem.Allocator, str: string) !StringIndex {
+        const t = tracer.trace(@src(), "({d})", .{str.len});
+        defer t.end();
+
         return @enumFromInt(try p.parser.addStr(alloc, str));
     }
 

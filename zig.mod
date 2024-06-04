@@ -6,6 +6,7 @@ description: "A JSON library for inspecting arbitrary values"
 dependencies:
   - src: git https://github.com/nektro/zig-extras
   - src: git https://github.com/nektro/zig-tracer
+  - src: git https://github.com/nektro/zig-intrusive-parser
 
 root_dependencies:
   - src: git https://github.com/nst/JSONTestSuite commit-984defc2deaa653cb73cd29f4144a720ec9efe7c

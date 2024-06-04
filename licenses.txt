@@ -4,3 +4,7 @@ MIT:
 - git https://github.com/nektro/zig-extras
 - git https://github.com/nektro/zig-tracer
 - git https://github.com/nst/JSONTestSuite
+
+MPL-2.0:
+= https://spdx.org/licenses/MPL-2.0
+- git https://github.com/nektro/zig-intrusive-parser
