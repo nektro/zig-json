@@ -62,7 +62,7 @@ fn addFuzzer(b: *std.Build, target: std.Build.ResolvedTarget, comptime name: []c
     fuzz_compile.addArgs(afl_clang_args);
 
     // Install the cached output to the install 'bin' path
-    const fuzz_install = b.addInstallBinFile(.{ .path = fuzz_exe_path }, fuzz_executable_name);
+    const fuzz_install = b.addInstallBinFile(.{ .cwd_relative = fuzz_exe_path }, fuzz_executable_name);
     fuzz_install.step.dependOn(&fuzz_compile.step);
 
     return fuzz_install;
