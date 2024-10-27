@@ -4,8 +4,8 @@ const extras = @import("extras");
 const tracer = @import("tracer");
 const intrusive_parser = @import("intrusive-parser");
 
-const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
-const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
+pub const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
+pub const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
 pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) (@TypeOf(inreader).Error || Error)!Document {
     const t = tracer.trace(@src(), "", .{});
@@ -13,19 +13,8 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
 
     _ = path;
 
-    var p = Parser.init(alloc, inreader.any(), options);
-    defer p.parser.deinit();
-    defer p.numbers_map.deinit(alloc);
-
-    comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
-    try p.parser.data.ensureUnusedCapacity(alloc, 4096);
-    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
-    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
-    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
-    p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
-    _ = try p.addStr(alloc, "");
-    std.debug.assert(try p.addArray(alloc, &.{}) == .empty_array);
-    std.debug.assert(try p.addObject(alloc, &ObjectHashMap{}) == .empty_object);
+    var p = try Parser.init(alloc, inreader.any(), options);
+    defer p.deinit();
 
     const root = try parseElementPrecise(alloc, &p, @TypeOf(inreader).Error || Error);
     if (p.avail() > 0) return error.MalformedJson;
@@ -251,7 +240,7 @@ fn parseWs(p: *Parser) !void {
     }
 }
 
-const Parser = struct {
+pub const Parser = struct {
     parser: intrusive_parser.Parser,
     numbers_map: std.StringArrayHashMapUnmanaged(NumberIndex) = .{},
     depth: u16 = 0,
@@ -259,12 +248,28 @@ const Parser = struct {
     support_trailing_commas: bool,
     maximum_depth: u16,
 
-    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader, options: Options) Parser {
-        return .{
+    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader, options: Options) !Parser {
+        var p: Parser = .{
             .parser = intrusive_parser.Parser.init(allocator, any, @intFromEnum(Value.Tag.string)),
             .support_trailing_commas = options.support_trailing_commas,
             .maximum_depth = options.maximum_depth,
         };
+        comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
+        try p.parser.data.ensureUnusedCapacity(allocator, 4096);
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
+        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
+        _ = try p.addStr(allocator, "");
+        std.debug.assert(try p.addArray(allocator, &.{}) == .empty_array);
+        std.debug.assert(try p.addObject(allocator, &ObjectHashMap{}) == .empty_object);
+
+        return p;
+    }
+
+    pub fn deinit(p: *Parser) void {
+        defer p.numbers_map.deinit(p.parser.allocator);
+        defer p.parser.deinit();
     }
 
     pub const Options = struct {
@@ -290,6 +295,17 @@ const Parser = struct {
         return @enumFromInt(r);
     }
 
+    pub fn addObjectFromConst(p: *Parser, alloc: std.mem.Allocator, members: []const struct { StringIndex, ValueIndex }) !ValueIndex {
+        const t = tracer.trace(@src(), "({d})", .{members.len});
+        defer t.end();
+
+        var map = ObjectHashMap{};
+        defer map.deinit(alloc);
+        try map.ensureTotalCapacity(alloc, members.len);
+        for (members) |member| map.putAssumeCapacity(member[0], member[1]);
+        return p.addObject(alloc, &map);
+    }
+
     // tag(u8) + len(u32) + items(N * u32)
     pub fn addArray(p: *Parser, alloc: std.mem.Allocator, items: []const ValueIndex) !ValueIndex {
         const t = tracer.trace(@src(), "({d})", .{items.len});
@@ -311,6 +327,11 @@ const Parser = struct {
         defer t.end();
 
         return @enumFromInt(try p.parser.addStr(alloc, str));
+    }
+
+    // tag(u8) + len(u32) + bytes(N)
+    pub fn addStrV(p: *Parser, alloc: std.mem.Allocator, str: string) !ValueIndex {
+        return @enumFromInt(@intFromEnum(try p.addStr(alloc, str)));
     }
 
     const Adapter = struct {
@@ -414,6 +435,7 @@ pub const ValueIndex = enum(u32) {
 
     pub fn v(this: ValueIndex) Value {
         std.debug.assert(this != .zero);
+        std.debug.assert(doc != null); // make sure to call Document.acquire()
         return switch (@as(Value.Tag, @enumFromInt(doc.?.extras[@intFromEnum(this)]))) {
             .zero => .zero,
             .null => .null,
