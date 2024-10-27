@@ -415,6 +415,12 @@ pub const Document = struct {
         _ = options;
         return std.fmt.format(writer, "{}", .{this.root});
     }
+
+    pub fn stringify(this: *const Document, writer: anytype, space: Space, indent: u8) @TypeOf(writer).Error!void {
+        const fill = space.fill();
+        for (0..indent) |_| try writer.writeAll(fill);
+        return @errorCast(this.root.stringify(writer, space, indent));
+    }
 };
 
 pub const ValueIndex = enum(u32) {
@@ -431,6 +437,10 @@ pub const ValueIndex = enum(u32) {
         _ = fmt;
         _ = options;
         return std.fmt.format(writer, "{}", .{this.v()});
+    }
+
+    fn stringify(this: ValueIndex, writer: anytype, space: Space, indent: u8) !void {
+        return this.v().stringify(writer, space, indent);
     }
 
     pub fn v(this: ValueIndex) Value {
@@ -493,6 +503,17 @@ pub const Value = union(enum(u8)) {
             inline .object, .array, .string, .number => |t| std.fmt.format(writer, "{}", .{t}),
         };
     }
+
+    fn stringify(this: Value, writer: anytype, space: Space, indent: u8) anyerror!void {
+        return switch (this) {
+            .zero => unreachable,
+            .null => writer.writeAll("null"),
+            .true => writer.writeAll("true"),
+            .false => writer.writeAll("false"),
+            inline .object, .array => |t| t.stringify(writer, space, indent),
+            inline .string, .number => |t| t.stringify(writer),
+        };
+    }
 };
 
 pub const Array = []align(1) const ValueIndex;
@@ -503,6 +524,12 @@ pub const StringIndex = enum(u32) {
     pub fn format(this: StringIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = options;
         _ = fmt;
+        try writer.writeAll("\"");
+        try writer.writeAll(this.to());
+        try writer.writeAll("\"");
+    }
+
+    fn stringify(this: StringIndex, writer: anytype) anyerror!void {
         try writer.writeAll("\"");
         try writer.writeAll(this.to());
         try writer.writeAll("\"");
@@ -532,6 +559,21 @@ pub const ArrayIndex = enum(u32) {
         try writer.writeAll("]");
     }
 
+    fn stringify(this: ArrayIndex, writer: anytype, space: Space, indent: u8) anyerror!void {
+        const fill = space.fill();
+        const items = this.to();
+        try writer.writeAll("[");
+        for (items, 0..) |item, i| {
+            if (i > 0) try writer.writeAll(",");
+            if (fill.len > 0) try writer.writeAll("\n");
+            for (0..indent + 1) |_| try writer.writeAll(fill);
+            try item.stringify(writer, space, indent + 1);
+        }
+        if (fill.len > 0) try writer.writeAll("\n");
+        for (0..indent) |_| try writer.writeAll(fill);
+        try writer.writeAll("]");
+    }
+
     pub fn to(this: ArrayIndex) Array {
         var d = doc.?.extras.ptr[@intFromEnum(this)..];
         std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .array);
@@ -555,6 +597,23 @@ pub const ObjectIndex = enum(u32) {
             try writer.writeAll(":");
             try writer.print("{}", .{v});
         }
+        try writer.writeAll("}");
+    }
+
+    fn stringify(this: ObjectIndex, writer: anytype, space: Space, indent: u8) anyerror!void {
+        const fill = space.fill();
+        const keys, const values = this.to();
+        try writer.writeAll("{");
+        for (keys, values, 0..) |k, v, i| {
+            if (i > 0) try writer.writeAll(",");
+            if (fill.len > 0) try writer.writeAll("\n");
+            for (0..indent + 1) |_| try writer.writeAll(fill);
+            try k.stringify(writer);
+            try writer.writeAll(":");
+            try v.stringify(writer, space, indent + 1);
+        }
+        if (fill.len > 0) try writer.writeAll("\n");
+        for (0..indent) |_| try writer.writeAll(fill);
         try writer.writeAll("}");
     }
 
@@ -614,6 +673,10 @@ pub const NumberIndex = enum(u32) {
         try writer.writeAll(this.to());
     }
 
+    fn stringify(this: NumberIndex, writer: anytype) anyerror!void {
+        try writer.writeAll(this.to());
+    }
+
     pub fn to(this: NumberIndex) []const u8 {
         var d = doc.?.extras.ptr[@intFromEnum(this)..];
         std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .number);
@@ -626,6 +689,18 @@ pub const NumberIndex = enum(u32) {
             .Int => std.fmt.parseInt(T, this.to(), 10) catch unreachable,
             .Float => std.fmt.parseFloat(T, this.to()) catch unreachable,
             else => @compileError("not a number type"),
+        };
+    }
+};
+
+const Space = union(enum) {
+    count: u8,
+    custom: []const u8,
+
+    pub fn fill(s: Space) []const u8 {
+        return switch (s) {
+            .count => |c| "          "[0..@min(c, 10)],
+            .custom => |f| f[0..@min(f.len, 10)],
         };
     }
 };
