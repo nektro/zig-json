@@ -1,4 +1,5 @@
 const std = @import("std");
+const string = []const u8;
 const deps = @import("./deps.zig");
 
 pub fn build(b: *std.Build) void {
@@ -11,6 +12,10 @@ pub fn build(b: *std.Build) void {
         .optimize = mode,
     });
     deps.addAllTo(test_exe);
+
+    const build_options = b.addOptions();
+    build_options.addOption(string, "JSONTestSuite_root", deps.dirs._bebdygynna6k ++ "/test_parsing");
+    test_exe.root_module.addImport("build_options", build_options.createModule());
 
     const test_cmd = b.addRunArtifact(test_exe);
     test_cmd.has_side_effects = true;

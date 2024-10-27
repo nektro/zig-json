@@ -1,5 +1,7 @@
 const std = @import("std");
 const json = @import("json");
+const build_options = @import("build_options");
+const JSONTestSuite_root = build_options.JSONTestSuite_root;
 
 fn parse_full(buffer: []const u8) !void {
     const alloc = std.testing.allocator;
@@ -257,8 +259,6 @@ test {
         \\
     );
 }
-
-const JSONTestSuite_root = ".zigmod/deps/v/git/github.com/nst/JSONTestSuite/commit-984defc2deaa653cb73cd29f4144a720ec9efe7c/test_parsing";
 
 fn expectPass(path: []const u8) !void {
     const alloc = std.testing.allocator;
