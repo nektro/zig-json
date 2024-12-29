@@ -26,6 +26,11 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     };
 }
 
+pub fn parseFromSlice(alloc: std.mem.Allocator, path: string, input: string, options: Parser.Options) !Document {
+    var fbs = std.io.fixedBufferStream(input);
+    return parse(alloc, path, fbs.reader(), options);
+}
+
 fn parseElementPrecise(alloc: std.mem.Allocator, p: *Parser, comptime E: type) E!ValueIndex {
     return @errorCast(parseElement(alloc, p));
 }
