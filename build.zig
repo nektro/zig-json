@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
     test_cmd.has_side_effects = true;
     test_cmd.step.dependOn(b.getInstallStep());
 
-    const test_step = b.step("test", "Run the tests");
+    const test_step = b.step("test", "Run all library tests");
     test_step.dependOn(&test_cmd.step);
 
     //
