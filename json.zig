@@ -73,7 +73,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.eatByte('{') orelse return null;
     try parseWs(p);
 
-    var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
+    var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
     const alloc_local = sfa.get();
     var members = ObjectHashMap{};
     defer members.deinit(alloc_local);
@@ -114,7 +114,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.eatByte('[') orelse return null;
     try parseWs(p);
 
-    var sfa = std.heap.stackFallback(std.mem.page_size, alloc);
+    var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
     const alloc_local = sfa.get();
     var elements = std.ArrayListUnmanaged(ValueIndex){};
     defer elements.deinit(alloc_local);
@@ -144,7 +144,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
-    var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
+    var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
@@ -191,7 +191,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
-    var stack_fallback = std.heap.stackFallback(std.mem.page_size, alloc);
+    var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
@@ -696,8 +696,8 @@ pub const NumberIndex = enum(u32) {
 
     pub fn get(this: NumberIndex, comptime T: type) T {
         return switch (@typeInfo(T)) {
-            .Int => std.fmt.parseInt(T, this.to(), 10) catch unreachable,
-            .Float => std.fmt.parseFloat(T, this.to()) catch unreachable,
+            .int => std.fmt.parseInt(T, this.to(), 10) catch unreachable,
+            .float => std.fmt.parseFloat(T, this.to()) catch unreachable,
             else => @compileError("not a number type"),
         };
     }
