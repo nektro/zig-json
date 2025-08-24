@@ -3,20 +3,21 @@ const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
 const intrusive_parser = @import("intrusive-parser");
+const nio = @import("nio");
 
 pub const Error = error{ OutOfMemory, EndOfStream, MalformedJson };
 pub const ObjectHashMap = std.AutoArrayHashMapUnmanaged(StringIndex, ValueIndex);
 
-pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options: Parser.Options) (@TypeOf(inreader).Error || Error)!Document {
+pub fn parse(alloc: std.mem.Allocator, path: string, inreadable: anytype, options: Parser.Options) (Instance(@TypeOf(inreadable)).ReadError || Error)!Document {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
     _ = path;
 
-    var p = try Parser.init(alloc, inreader.any(), options);
+    var p = try Parser.init(alloc, inreadable.anyReadable(), options);
     defer p.deinit();
 
-    const root = try parseElementPrecise(alloc, &p, @TypeOf(inreader).Error || Error);
+    const root = try parseElementPrecise(alloc, &p, Instance(@TypeOf(inreadable)).ReadError || Error);
     if (p.parser.avail() > 0) return error.MalformedJson;
     const data = try p.parser.data.toOwnedSlice(alloc);
 
@@ -26,9 +27,16 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     };
 }
 
+fn Instance(T: type) type {
+    return switch (@typeInfo(T)) {
+        .pointer => |info| info.child,
+        else => T,
+    };
+}
+
 pub fn parseFromSlice(alloc: std.mem.Allocator, path: string, input: string, options: Parser.Options) !Document {
-    var fbs = std.io.fixedBufferStream(input);
-    return parse(alloc, path, fbs.reader(), options);
+    var fbs: nio.FixedBufferStream(string) = .init(input);
+    return parse(alloc, path, &fbs, options);
 }
 
 fn parseElementPrecise(alloc: std.mem.Allocator, p: *Parser, comptime E: type) E!ValueIndex {
@@ -253,7 +261,7 @@ pub const Parser = struct {
     support_trailing_commas: bool,
     maximum_depth: u16,
 
-    pub fn init(allocator: std.mem.Allocator, any: std.io.AnyReader, options: Options) !Parser {
+    pub fn init(allocator: std.mem.Allocator, any: nio.AnyReadable, options: Options) !Parser {
         var p: Parser = .{
             .parser = intrusive_parser.Parser.init(allocator, any, @intFromEnum(Value.Tag.string)),
             .support_trailing_commas = options.support_trailing_commas,

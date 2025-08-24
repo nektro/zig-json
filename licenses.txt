@@ -1,10 +1,18 @@
 MIT:
 = https://spdx.org/licenses/MIT
 - This
+- git https://github.com/nektro/zig-errno
 - git https://github.com/nektro/zig-extras
+- git https://github.com/nektro/zig-libc
+- git https://github.com/nektro/zig-sys-libc
 - git https://github.com/nektro/zig-tracer
 - git https://github.com/nst/JSONTestSuite
 
 MPL-2.0:
 = https://spdx.org/licenses/MPL-2.0
 - git https://github.com/nektro/zig-intrusive-parser
+- git https://github.com/nektro/zig-nfs
+- git https://github.com/nektro/zig-nio
+
+Unspecified:
+- system_lib c

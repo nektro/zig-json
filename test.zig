@@ -1,12 +1,15 @@
 const std = @import("std");
 const json = @import("json");
 const build_options = @import("build_options");
+const nfs = @import("nfs");
+const nio = @import("nio");
+
 const JSONTestSuite_root = build_options.JSONTestSuite_root;
 
 fn parse_full(buffer: []const u8) !void {
     const alloc = std.testing.allocator;
-    var fbs = std.io.fixedBufferStream(buffer);
-    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
+    var fbs: nio.FixedBufferStream([]const u8) = .init(buffer);
+    var doc = try json.parse(alloc, "", &fbs, .{ .support_trailing_commas = true, .maximum_depth = 100 });
     defer doc.deinit(alloc);
 }
 
@@ -260,11 +263,11 @@ test {
     );
 }
 
-fn expectPass(path: []const u8) !void {
+fn expectPass(path: [:0]const u8) !void {
     const alloc = std.testing.allocator;
-    var file = try std.fs.cwd().openFile(path, .{});
+    const file = try nfs.cwd().openFile(path, .{});
     defer file.close();
-    var doc = try json.parse(alloc, path, file.reader(), .{ .support_trailing_commas = false, .maximum_depth = 100 });
+    var doc = try json.parse(alloc, path, file, .{ .support_trailing_commas = false, .maximum_depth = 100 });
     defer doc.deinit(alloc);
 }
 
@@ -366,11 +369,11 @@ test { try expectPass(JSONTestSuite_root ++ "/y_structure_true_in_array.json"); 
 test { try expectPass(JSONTestSuite_root ++ "/y_structure_whitespace_array.json"); }
 // zig fmt: on
 
-fn expectFail(path: []const u8) !void {
+fn expectFail(path: [:0]const u8) !void {
     const alloc = std.testing.allocator;
-    var file = try std.fs.cwd().openFile(path, .{});
+    const file = try nfs.cwd().openFile(path, .{});
     defer file.close();
-    var doc = json.parse(alloc, path, file.reader(), .{ .support_trailing_commas = false, .maximum_depth = 100 }) catch return;
+    var doc = json.parse(alloc, path, file, .{ .support_trailing_commas = false, .maximum_depth = 100 }) catch return;
     defer doc.deinit(alloc);
     try std.testing.expect(false);
 }
@@ -568,8 +571,8 @@ test { try expectFail(JSONTestSuite_root ++ "/n_structure_whitespace_U+2060_word
 
 fn expectCanonical(buffer: []const u8) !void {
     const alloc = std.testing.allocator;
-    var fbs = std.io.fixedBufferStream(buffer);
-    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
+    var fbs: nio.FixedBufferStream([]const u8) = .init(buffer);
+    var doc = try json.parse(alloc, "", &fbs, .{ .support_trailing_commas = true, .maximum_depth = 100 });
     defer doc.deinit(alloc);
     doc.acquire();
     defer doc.release();
@@ -589,10 +592,10 @@ test { try expectCanonical("[7,8,9]"); }
 
 test {
     const alloc = std.testing.allocator;
-    var fbs = std.io.fixedBufferStream(
+    var fbs: nio.FixedBufferStream([]const u8) = .init(
         \\["abc",456,"ghi",{"foo":"bar"}]
     );
-    var doc = try json.parse(alloc, "", fbs.reader(), .{ .support_trailing_commas = true, .maximum_depth = 100 });
+    var doc = try json.parse(alloc, "", &fbs, .{ .support_trailing_commas = true, .maximum_depth = 100 });
     defer doc.deinit(alloc);
     doc.acquire();
     defer doc.release();
