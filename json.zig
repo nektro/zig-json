@@ -17,7 +17,7 @@ pub fn parse(alloc: std.mem.Allocator, path: string, inreader: anytype, options:
     defer p.deinit();
 
     const root = try parseElementPrecise(alloc, &p, @TypeOf(inreader).Error || Error);
-    if (p.avail() > 0) return error.MalformedJson;
+    if (p.parser.avail() > 0) return error.MalformedJson;
     const data = try p.parser.data.toOwnedSlice(alloc);
 
     return .{
@@ -52,9 +52,9 @@ fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
     const t = tracer.trace(@src(), "", .{});
     defer t.end();
 
-    if (try p.eat("null")) |_| return @enumFromInt(1);
-    if (try p.eat("true")) |_| return @enumFromInt(2);
-    if (try p.eat("false")) |_| return @enumFromInt(3);
+    if (try p.parser.eat("null")) |_| return @enumFromInt(1);
+    if (try p.parser.eat("true")) |_| return @enumFromInt(2);
+    if (try p.parser.eat("false")) |_| return @enumFromInt(3);
     if (try parseNumber(alloc, p)) |v| return v;
     if (try parseString(alloc, p)) |v| return @enumFromInt(@intFromEnum(v));
     if (try parseArray(alloc, p)) |v| return v;
@@ -70,7 +70,7 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer p.depth -= 1;
     if (p.depth > p.maximum_depth) return error.MalformedJson;
 
-    _ = try p.eatByte('{') orelse return null;
+    _ = try p.parser.eatByte('{') orelse return null;
     try parseWs(p);
 
     var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
@@ -78,24 +78,24 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     var members = ObjectHashMap{};
     defer members.deinit(alloc_local);
 
-    if (try p.eatByte('}')) |_| {
+    if (try p.parser.eatByte('}')) |_| {
         return .empty_object;
     }
     while (true) {
         const key = try parseString(alloc, p) orelse return error.MalformedJson;
         try parseWs(p);
-        _ = try p.eatByte(':') orelse return error.MalformedJson;
+        _ = try p.parser.eatByte(':') orelse return error.MalformedJson;
         try parseWs(p);
         const value = try parseValue(alloc, p);
         try members.put(alloc_local, key, value);
         try parseWs(p);
-        _ = try p.eatByte(',') orelse {
-            _ = try p.eatByte('}') orelse return error.MalformedJson;
+        _ = try p.parser.eatByte(',') orelse {
+            _ = try p.parser.eatByte('}') orelse return error.MalformedJson;
             break;
         };
         try parseWs(p);
         if (!p.support_trailing_commas) continue;
-        if (try p.eatByte('}')) |_| break;
+        if (try p.parser.eatByte('}')) |_| break;
     }
     if (members.entries.len == 0) {
         return .empty_object;
@@ -111,7 +111,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer p.depth -= 1;
     if (p.depth > p.maximum_depth) return error.MalformedJson;
 
-    _ = try p.eatByte('[') orelse return null;
+    _ = try p.parser.eatByte('[') orelse return null;
     try parseWs(p);
 
     var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
@@ -119,20 +119,20 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     var elements = std.ArrayListUnmanaged(ValueIndex){};
     defer elements.deinit(alloc_local);
 
-    if (try p.eatByte(']')) |_| {
+    if (try p.parser.eatByte(']')) |_| {
         return .empty_array;
     }
     while (true) {
         const elem = try parseValue(alloc, p);
         try elements.append(alloc_local, elem);
         try parseWs(p);
-        _ = try p.eatByte(',') orelse {
-            _ = try p.eatByte(']') orelse return error.MalformedJson;
+        _ = try p.parser.eatByte(',') orelse {
+            _ = try p.parser.eatByte(']') orelse return error.MalformedJson;
             break;
         };
         try parseWs(p);
         if (!p.support_trailing_commas) continue;
-        if (try p.eatByte(']')) |_| break;
+        if (try p.parser.eatByte(']')) |_| break;
     }
     if (elements.items.len == 0) {
         return .empty_array;
@@ -148,10 +148,10 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
-    _ = try p.eatByte('"') orelse return null;
+    _ = try p.parser.eatByte('"') orelse return null;
 
     while (true) {
-        const c = try p.shift();
+        const c = try p.parser.shift();
         if (c == '"') {
             break;
         }
@@ -162,7 +162,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             try characters.appendSlice(b);
             continue;
         }
-        switch (try p.shift()) {
+        switch (try p.parser.shift()) {
             inline 0x22, 0x5C, 0x2F => |d| try characters.append(d),
             'b' => try characters.append(0x8),
             'f' => try characters.append(0xC),
@@ -171,7 +171,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
             't' => try characters.append(0x9),
             'u' => {
                 var o: u32 = 0;
-                var d = try p.shiftBytesN(4);
+                var d = try p.parser.shiftBytesN(4);
                 if (!extras.matchesAll(u8, &d, std.ascii.isHex)) return error.MalformedJson;
                 d = @bitCast(@byteSwap(@as(u32, @bitCast(d))));
                 for (d, 0..) |e, i| o += (e * std.math.pow(u32, 2, @intCast(i)));
@@ -195,14 +195,14 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     var characters = std.ArrayList(u8).init(stack_fallback.get());
     defer characters.deinit();
 
-    if (try p.eatByte('-')) |c| {
+    if (try p.parser.eatByte('-')) |c| {
         try characters.append(c);
     }
-    if (try p.eatByte('0')) |c| {
+    if (try p.parser.eatByte('0')) |c| {
         try characters.append(c);
-        if (try p.eatRange('1', '9')) |_| return error.MalformedJson;
+        if (try p.parser.eatRange('1', '9')) |_| return error.MalformedJson;
     }
-    while (try p.eatRange('0', '9')) |d| {
+    while (try p.parser.eatRange('0', '9')) |d| {
         try characters.append(d);
     }
     if (characters.items.len == 0) {
@@ -211,19 +211,19 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     if (characters.items.len == 1 and characters.items[0] == '-') {
         return error.MalformedJson;
     }
-    if (try p.eatByte('.')) |c| {
+    if (try p.parser.eatByte('.')) |c| {
         try characters.append(c);
         const l = characters.items.len;
-        while (try p.eatRange('0', '9')) |d| {
+        while (try p.parser.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
         if (characters.items.len == l) return error.MalformedJson;
     }
-    if (try p.eatAnyScalar("eE")) |_| {
+    if (try p.parser.eatAnyScalar("eE")) |_| {
         try characters.append('e');
-        try characters.append(try p.eatAnyScalar("+-") orelse '+');
+        try characters.append(try p.parser.eatAnyScalar("+-") orelse '+');
         const l = characters.items.len;
-        while (try p.eatRange('0', '9')) |d| {
+        while (try p.parser.eatRange('0', '9')) |d| {
             try characters.append(d);
         }
         if (characters.items.len == l) return error.MalformedJson;
@@ -237,10 +237,10 @@ fn parseWs(p: *Parser) !void {
     defer t.end();
 
     while (true) {
-        if (try p.eatByte(0x20)) |_| continue; // space
-        if (try p.eatByte(0x0A)) |_| continue; // NL
-        if (try p.eatByte(0x0D)) |_| continue; // CR
-        if (try p.eatByte(0x09)) |_| continue; // TAB
+        if (try p.parser.eatByte(0x20)) |_| continue; // space
+        if (try p.parser.eatByte(0x0A)) |_| continue; // NL
+        if (try p.parser.eatByte(0x0D)) |_| continue; // CR
+        if (try p.parser.eatByte(0x09)) |_| continue; // TAB
         break;
     }
 }
@@ -281,8 +281,6 @@ pub const Parser = struct {
         support_trailing_commas: bool,
         maximum_depth: u16,
     };
-
-    pub usingnamespace intrusive_parser.Mixin(@This());
 
     // tag(u8) + len(u32) + member_keys(N * u32) + member_values(N * u32)
     pub fn addObject(p: *Parser, members: *const ObjectHashMap) !ValueIndex {
