@@ -262,6 +262,9 @@ test {
         \\
     );
 }
+test {
+    try parse_full(@embedFile("./fuzz/input/input.json"));
+}
 
 fn expectPass(path: [:0]const u8) !void {
     const alloc = std.testing.allocator;
