@@ -5,6 +5,7 @@ MIT:
 - git https://github.com/nektro/zig-extras
 - git https://github.com/nektro/zig-libc
 - git https://github.com/nektro/zig-sys-libc
+- git https://github.com/nektro/zig-time
 - git https://github.com/nektro/zig-tracer
 - git https://github.com/nst/JSONTestSuite
 
