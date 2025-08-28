@@ -21,6 +21,7 @@ pub fn build(b: *std.Build) void {
     test_exe.root_module.addImport("build_options", build_options.createModule());
 
     const test_cmd = b.addRunArtifact(test_exe);
+    test_cmd.setCwd(b.path("."));
     test_cmd.has_side_effects = true;
     test_cmd.step.dependOn(b.getInstallStep());
 
