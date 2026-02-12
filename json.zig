@@ -702,7 +702,7 @@ pub const NumberIndex = enum(u32) {
 
     pub fn get(this: NumberIndex, comptime T: type) T {
         return switch (@typeInfo(T)) {
-            .int => std.fmt.parseInt(T, this.to(), 10) catch unreachable,
+            .int => extras.parseDigits(T, this.to(), 10) catch unreachable,
             .float => std.fmt.parseFloat(T, this.to()) catch unreachable,
             else => @compileError("not a number type"),
         };
