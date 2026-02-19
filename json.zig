@@ -432,9 +432,9 @@ pub const Document = struct {
         return std.fmt.format(writer, "{}", .{this.root});
     }
 
-    pub fn stringify(this: *const Document, writer: anytype, space: Space, indent: u8) @TypeOf(writer).Error!void {
+    pub fn stringify(this: *const Document, writer: anytype, space: Space, indent: u8) Instance(@TypeOf(writer)).WriteError!void {
         const fill = space.fill();
-        for (0..indent) |_| try writer.writeAll(fill);
+        try writer.writeNTimes(fill, indent);
         return @errorCast(this.root.stringify(writer, space, indent));
     }
 };
@@ -582,11 +582,11 @@ pub const ArrayIndex = enum(u32) {
         for (items, 0..) |item, i| {
             if (i > 0) try writer.writeAll(",");
             if (fill.len > 0) try writer.writeAll("\n");
-            for (0..indent + 1) |_| try writer.writeAll(fill);
+            try writer.writeNTimes(fill, indent + 1);
             try item.stringify(writer, space, indent + 1);
         }
         if (fill.len > 0) try writer.writeAll("\n");
-        for (0..indent) |_| try writer.writeAll(fill);
+        try writer.writeNTimes(fill, indent);
         try writer.writeAll("]");
     }
 
@@ -623,13 +623,13 @@ pub const ObjectIndex = enum(u32) {
         for (keys, values, 0..) |k, v, i| {
             if (i > 0) try writer.writeAll(",");
             if (fill.len > 0) try writer.writeAll("\n");
-            for (0..indent + 1) |_| try writer.writeAll(fill);
+            try writer.writeNTimes(fill, indent + 1);
             try k.stringify(writer);
             try writer.writeAll(":");
             try v.stringify(writer, space, indent + 1);
         }
         if (fill.len > 0) try writer.writeAll("\n");
-        for (0..indent) |_| try writer.writeAll(fill);
+        try writer.writeNTimes(fill, indent);
         try writer.writeAll("}");
     }
 

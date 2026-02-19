@@ -580,6 +580,11 @@ fn expectCanonical(buffer: []const u8) !void {
     doc.acquire();
     defer doc.release();
     try std.testing.expectFmt(buffer, "{}", .{doc});
+
+    var buf: [4096]u8 = undefined;
+    var out: nio.FixedBufferStream([]u8) = .init(&buf);
+    try doc.stringify(&out, .{ .count = 0 }, 0);
+    try std.testing.expectEqualStrings(buffer, out.buffer[0..out.pos]);
 }
 
 // zig fmt: off
