@@ -720,3 +720,48 @@ const Space = union(enum) {
         };
     }
 };
+
+pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOptions) extras.Pointee(@TypeOf(writer)).WriteError!void {
+    const T = @TypeOf(value);
+    if (comptime extras.isZigString(T)) {
+        if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
+            try writer.writevAll(&.{ &.{'"'}, value, &.{'"'} });
+        } else {
+            @panic("TODO");
+        }
+        return;
+    }
+    if (comptime extras.isArrayOf(u8)(T)) {
+        if (extras.matchesAll(u8, &value, std.ascii.isAscii)) {
+            try writer.writevAll(&.{ &.{'"'}, &value, &.{'"'} });
+        } else {
+            @panic("TODO");
+        }
+        return;
+    }
+    switch (@typeInfo(T)) {
+        .@"struct" => |info| {
+            try writer.writeAll("{");
+            inline for (info.fields, 0..) |field, i| blk: {
+                const field_value = @field(value, field.name);
+                if (@typeInfo(field.type) == .optional and field_value == null and !options.emit_null_optional_fields) break :blk;
+                if (i > 0) try writer.writeAll(",");
+                try stringify(writer, field.name, options);
+                try writer.writeAll(":");
+                try stringify(writer, field_value, options);
+            }
+            try writer.writeAll("}");
+        },
+        .comptime_int => {
+            return nio.fmt.formatInt(value, 10, .lower, .{}, writer);
+        },
+        .optional => {
+            if (value) |v| {
+                try stringify(writer, v, options);
+            } else {
+                try writer.writeAll("null");
+            }
+        },
+        else => @compileError(@typeName(T)),
+    }
+}
