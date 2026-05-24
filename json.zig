@@ -765,3 +765,11 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
         else => @compileError(@typeName(T)),
     }
 }
+
+pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std.json.StringifyOptions) ![]u8 {
+    var writer: nio.AllocatingWriter = .init(allocator);
+    defer writer.deinit();
+    try writer.ensureUnusedCapacity(256);
+    try stringify(&writer, value, options);
+    return writer.toOwnedSlice();
+}
