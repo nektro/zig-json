@@ -762,6 +762,9 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
                 try writer.writeAll("null");
             }
         },
+        .bool => {
+            try writer.writeAll(if (value) "true" else "false");
+        },
         else => @compileError(@typeName(T)),
     }
 }
