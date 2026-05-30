@@ -725,7 +725,19 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
     const T = @TypeOf(value);
     if (comptime extras.isZigString(T)) {
         if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
-            try writer.writevAll(&.{ &.{'"'}, value, &.{'"'} });
+            if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
+                try writer.writevAll(&.{ &.{'"'}, value, &.{'"'} });
+            } else {
+                try writer.writeAll("\"");
+                for (value) |c| {
+                    try writer.writeAll(switch (c) {
+                        0x20...0x7e => &.{c},
+                        0x0c => "\\n",
+                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
+                    });
+                }
+                try writer.writeAll("\"");
+            }
         } else {
             @panic("TODO");
         }
@@ -733,7 +745,19 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
     }
     if (comptime extras.isArrayOf(u8)(T)) {
         if (extras.matchesAll(u8, &value, std.ascii.isAscii)) {
-            try writer.writevAll(&.{ &.{'"'}, &value, &.{'"'} });
+            if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
+                try writer.writevAll(&.{ &.{'"'}, &value, &.{'"'} });
+            } else {
+                try writer.writeAll("\"");
+                for (&value) |c| {
+                    try writer.writeAll(switch (c) {
+                        0x20...0x7e => &.{c},
+                        0x0c => "\\n",
+                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
+                    });
+                }
+                try writer.writeAll("\"");
+            }
         } else {
             @panic("TODO");
         }
