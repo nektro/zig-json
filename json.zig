@@ -747,7 +747,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
     }
     if (comptime extras.isArrayOf(u8)(T)) {
         if (extras.matchesAll(u8, &value, std.ascii.isAscii)) {
-            if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
+            if (extras.matchesAll(u8, &value, std.ascii.isPrint)) {
                 try writer.writevAll(&.{ &.{'"'}, &value, &.{'"'} });
             } else {
                 try writer.writeAll("\"");
