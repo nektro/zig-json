@@ -642,6 +642,19 @@ pub const ObjectIndex = enum(u32) {
         return .{ k[0..len], v[0..len] };
     }
 
+    pub fn getAny(this: ObjectIndex, needle: []const u8) ?ValueIndex {
+        const keys, const values = this.to();
+        for (keys, values) |k, v| {
+            if (std.mem.eql(u8, needle, k.to())) {
+                if (v.v() == .null) {
+                    return null;
+                }
+                return v;
+            }
+        }
+        return null;
+    }
+
     pub fn get(this: ObjectIndex, needle: []const u8, comptime tag: Value.Tag) ?ValueIndex {
         const keys, const values = this.to();
         for (keys, values) |k, v| {
