@@ -731,8 +731,10 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
                 try writer.writeAll("\"");
                 for (value) |c| {
                     try writer.writeAll(switch (c) {
-                        0x20...0x7e => &.{c},
                         0x0c => "\\n",
+                        0x20...0x21 => &.{c},
+                        0x22 => "\\\"",
+                        0x23...0x7e => &.{c},
                         else => "\\u00" ++ extras.to_hex([_]u8{c}),
                     });
                 }
@@ -751,8 +753,10 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
                 try writer.writeAll("\"");
                 for (&value) |c| {
                     try writer.writeAll(switch (c) {
-                        0x20...0x7e => &.{c},
                         0x0c => "\\n",
+                        0x20...0x21 => &.{c},
+                        0x22 => "\\\"",
+                        0x23...0x7e => &.{c},
                         else => "\\u00" ++ extras.to_hex([_]u8{c}),
                     });
                 }
