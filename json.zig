@@ -719,7 +719,7 @@ const Space = union(enum) {
     }
 };
 
-pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOptions) extras.Pointee(@TypeOf(writer)).WriteError!void {
+pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Options) extras.Pointee(@TypeOf(writer)).WriteError!void {
     const T = @TypeOf(value);
     if (comptime extras.isZigString(T)) {
         if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
@@ -795,7 +795,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.StringifyOpt
     }
 }
 
-pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std.json.StringifyOptions) ![]u8 {
+pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std.json.Stringify.Options) ![]u8 {
     var writer: nio.AllocatingWriter = .init(allocator);
     defer writer.deinit();
     try writer.ensureUnusedCapacity(256);
