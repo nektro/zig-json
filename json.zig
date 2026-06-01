@@ -426,10 +426,8 @@ pub const Document = struct {
         doc = null;
     }
 
-    pub fn format(this: *const Document, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = fmt;
-        _ = options;
-        return std.fmt.format(writer, "{}", .{this.root});
+    pub fn nprint(this: *const Document, writer: anytype) !void {
+        return nio.fmt.format(writer, "{}", .{this.root});
     }
 
     pub fn stringify(this: *const Document, writer: anytype, space: Space, indent: u8) Instance(@TypeOf(writer)).WriteError!void {
@@ -449,10 +447,8 @@ pub const ValueIndex = enum(u32) {
     empty_object = 14,
     _,
 
-    pub fn format(this: ValueIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = fmt;
-        _ = options;
-        return std.fmt.format(writer, "{}", .{this.v()});
+    pub fn nprint(this: ValueIndex, writer: anytype) !void {
+        return nio.fmt.format(writer, "{}", .{this.v()});
     }
 
     fn stringify(this: ValueIndex, writer: anytype, space: Space, indent: u8) !void {
@@ -508,15 +504,13 @@ pub const Value = union(enum(u8)) {
 
     const Tag = std.meta.Tag(@This());
 
-    pub fn format(this: Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = options;
-        _ = fmt;
+    pub fn nprint(this: Value, writer: anytype) !void {
         return switch (this) {
             .zero => unreachable,
-            .null => std.fmt.format(writer, "null", .{}),
-            .true => std.fmt.format(writer, "true", .{}),
-            .false => std.fmt.format(writer, "false", .{}),
-            inline .object, .array, .string, .number => |t| std.fmt.format(writer, "{}", .{t}),
+            .null => nio.fmt.format(writer, "null", .{}),
+            .true => nio.fmt.format(writer, "true", .{}),
+            .false => nio.fmt.format(writer, "false", .{}),
+            inline .object, .array, .string, .number => |t| nio.fmt.format(writer, "{}", .{t}),
         };
     }
 
@@ -537,9 +531,7 @@ pub const Array = []align(1) const ValueIndex;
 pub const StringIndex = enum(u32) {
     _,
 
-    pub fn format(this: StringIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = options;
-        _ = fmt;
+    pub fn nprint(this: StringIndex, writer: anytype) !void {
         try writer.writeAll("\"");
         try writer.writeAll(this.to());
         try writer.writeAll("\"");
@@ -562,10 +554,7 @@ pub const StringIndex = enum(u32) {
 pub const ArrayIndex = enum(u32) {
     _,
 
-    pub fn format(this: ArrayIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = options;
-        _ = fmt;
-
+    pub fn nprint(this: ArrayIndex, writer: anytype) !void {
         const items = this.to();
         try writer.writeAll("[");
         for (items, 0..) |item, i| {
@@ -602,9 +591,7 @@ pub const ArrayIndex = enum(u32) {
 pub const ObjectIndex = enum(u32) {
     _,
 
-    pub fn format(this: ObjectIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = options;
-        _ = fmt;
+    pub fn nprint(this: ObjectIndex, writer: anytype) !void {
         const keys, const values = this.to();
         try writer.writeAll("{");
         for (keys, values, 0..) |k, v, i| {
@@ -696,9 +683,7 @@ pub const ObjectIndex = enum(u32) {
 pub const NumberIndex = enum(u32) {
     _,
 
-    pub fn format(this: NumberIndex, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = options;
-        _ = fmt;
+    pub fn nprint(this: NumberIndex, writer: anytype) !void {
         try writer.writeAll(this.to());
     }
 
