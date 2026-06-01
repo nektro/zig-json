@@ -15,6 +15,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     deps.addAllTo(test_exe);
+    test_exe.linkLibC();
     test_exe.use_llvm = !disable_llvm;
     test_exe.use_lld = !disable_llvm;
 
