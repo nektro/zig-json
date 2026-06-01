@@ -3,6 +3,7 @@ const json = @import("json");
 const build_options = @import("build_options");
 const nfs = @import("nfs");
 const nio = @import("nio");
+const expect = @import("expect").expect;
 
 const JSONTestSuite_root = build_options.JSONTestSuite_root;
 
@@ -579,7 +580,7 @@ fn expectCanonical(buffer: []const u8) !void {
     defer doc.deinit(alloc);
     doc.acquire();
     defer doc.release();
-    try std.testing.expectFmt(buffer, "{}", .{doc});
+    try expect(buffer).toEqualNFmt("{}", .{doc});
 
     var buf: [4096]u8 = undefined;
     var out: nio.FixedBufferStream([]u8) = .init(&buf);
