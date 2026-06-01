@@ -153,7 +153,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
     defer t.end();
 
     var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    var characters = std.ArrayList(u8).init(stack_fallback.get());
+    var characters = std.array_list.Managed(u8).init(stack_fallback.get());
     defer characters.deinit();
 
     _ = try p.parser.eatByte('"') orelse return null;
@@ -200,7 +200,7 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     defer t.end();
 
     var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    var characters = std.ArrayList(u8).init(stack_fallback.get());
+    var characters = std.array_list.Managed(u8).init(stack_fallback.get());
     defer characters.deinit();
 
     if (try p.parser.eatByte('-')) |c| {
