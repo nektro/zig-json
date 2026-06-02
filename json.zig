@@ -40,7 +40,7 @@ pub fn parseFromSlice(alloc: std.mem.Allocator, path: string, input: string, opt
 }
 
 fn parseElementPrecise(alloc: std.mem.Allocator, p: *Parser, comptime E: type) E!ValueIndex {
-    return @errorCast(parseElement(alloc, p));
+    return parseElement(alloc, p) catch |err| @errorCast(err);
 }
 
 fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
@@ -433,7 +433,7 @@ pub const Document = struct {
     pub fn stringify(this: *const Document, writer: anytype, space: Space, indent: u8) Instance(@TypeOf(writer)).WriteError!void {
         const fill = space.fill();
         try writer.writeNTimes(fill, indent);
-        return @errorCast(this.root.stringify(writer, space, indent));
+        return this.root.stringify(writer, space, indent) catch |err| @errorCast(err);
     }
 };
 
