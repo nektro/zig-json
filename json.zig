@@ -124,7 +124,7 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 
     var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
     const alloc_local = sfa.get();
-    var elements = std.ArrayListUnmanaged(ValueIndex){};
+    var elements: std.ArrayListUnmanaged(ValueIndex) = .empty;
     defer elements.deinit(alloc_local);
 
     if (try p.parser.eatByte(']')) |_| {
