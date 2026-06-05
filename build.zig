@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
     test_exe.linkLibC();
     test_exe.use_llvm = !disable_llvm;
     test_exe.use_lld = !disable_llvm;
+    b.getInstallStep().dependOn(&test_exe.step);
 
     const build_options = b.addOptions();
     build_options.addOption(string, "JSONTestSuite_root", deps.dirs._bebdygynna6k ++ "/test_parsing");
@@ -34,6 +35,7 @@ pub fn build(b: *std.Build) void {
     //
 
     const fuzz_exe = addFuzzer(b, target, "json", &.{});
+    b.getInstallStep().dependOn(fuzz_exe.step.dependencies.items[0]);
 
     const fuzz_run = b.addSystemCommand(&.{"afl-fuzz"});
     fuzz_run.step.dependOn(&fuzz_exe.step);
