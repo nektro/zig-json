@@ -765,6 +765,15 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         }
         return;
     }
+    if (comptime extras.isSlice(T)) {
+        try writer.writeAll("[");
+        for (value, 0..) |item, i| {
+            if (i > 0) try writer.writeAll(",");
+            try stringify(writer, item, options);
+        }
+        try writer.writeAll("]");
+        return;
+    }
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
             try writer.writeAll("{");
