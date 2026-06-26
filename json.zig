@@ -719,7 +719,7 @@ const Space = union(enum) {
     }
 };
 
-pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Options) extras.Pointee(@TypeOf(writer)).WriteError!void {
+pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Options) (extras.Pointee(@TypeOf(writer)).WriteError || error{Unexpected})!void {
     const T = @TypeOf(value);
     if (comptime extras.isZigString(T)) {
         if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
