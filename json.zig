@@ -729,7 +729,11 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
                 for (value) |c| {
                     try writer.writeAll(switch (c) {
-                        0x0c => "\\n",
+                        0x08 => "\\b",
+                        0x09 => "\\t",
+                        0x0a => "\\n",
+                        0x0c => "\\f",
+                        0x0d => "\\r",
                         0x20...0x21 => &.{c},
                         0x22 => "\\\"",
                         0x23...0x7e => &.{c},
@@ -751,7 +755,11 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
                 for (&value) |c| {
                     try writer.writeAll(switch (c) {
-                        0x0c => "\\n",
+                        0x08 => "\\b",
+                        0x09 => "\\t",
+                        0x0a => "\\n",
+                        0x0c => "\\f",
+                        0x0d => "\\r",
                         0x20...0x21 => &.{c},
                         0x22 => "\\\"",
                         0x23...0x7e => &.{c},
