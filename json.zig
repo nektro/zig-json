@@ -743,7 +743,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
             }
         } else {
-            @panic("TODO");
+            return error.Unexpected;
         }
         return;
     }
@@ -769,7 +769,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
             }
         } else {
-            @panic("TODO");
+            return error.Unexpected;
         }
         return;
     }
