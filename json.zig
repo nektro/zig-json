@@ -743,17 +743,13 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
             }
         } else {
-            return error.Unexpected;
-        }
-        return;
-    }
-    if (comptime extras.isArrayOf(u8)(T)) {
-        if (extras.matchesAll(u8, &value, std.ascii.isAscii)) {
-            if (extras.matchesAll(u8, &value, std.ascii.isPrint)) {
-                try writer.writevAll(&.{ &.{'"'}, &value, &.{'"'} });
-            } else {
-                try writer.writeAll("\"");
-                for (&value) |c| {
+            var view = std.unicode.Utf8View.init(value) catch return error.Unexpected;
+            var iter = view.iterator();
+            try writer.writeAll("\"");
+            while (iter.nextCodepointSlice()) |sl| {
+                const cp = std.unicode.utf8Decode(sl) catch unreachable;
+                if (cp < 128) {
+                    const c: u8 = @intCast(cp);
                     try writer.writeAll(switch (c) {
                         0x08 => "\\b",
                         0x09 => "\\t",
@@ -765,13 +761,17 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                         0x23...0x7e => &.{c},
                         else => "\\u00" ++ extras.to_hex([_]u8{c}),
                     });
+                    continue;
                 }
-                try writer.writeAll("\"");
+                try writer.writeAll(sl);
             }
-        } else {
-            return error.Unexpected;
+            try writer.writeAll("\"");
+            return;
         }
         return;
+    }
+    if (comptime extras.isArrayOf(u8)(T)) {
+        return stringify(writer, &value, options);
     }
     if (comptime extras.isSlice(T)) {
         try writer.writeAll("[");
