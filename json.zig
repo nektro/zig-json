@@ -808,6 +808,20 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         .bool => {
             try writer.writeAll(if (value) "true" else "false");
         },
+        .@"union" => {
+            switch (value) {
+                inline else => |v, t| {
+                    try writer.writeAll("{");
+                    try stringify(writer, @tagName(t), options);
+                    try writer.writeAll(":");
+                    try stringify(writer, v, options);
+                    try writer.writeAll("}");
+                },
+            }
+        },
+        .void => {
+            try writer.writeAll("{}");
+        },
         else => @compileError(@typeName(T)),
     }
 }
