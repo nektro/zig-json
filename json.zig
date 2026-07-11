@@ -743,7 +743,16 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 try writer.writeAll("\"");
             }
         } else {
-            var view = std.unicode.Utf8View.init(value) catch return error.Unexpected;
+            var view = std.unicode.Utf8View.init(value) catch {
+                try writer.writeAll("\"");
+                for (value) |c| {
+                    try writer.writeAll(switch (c) {
+                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
+                    });
+                }
+                try writer.writeAll("\"");
+                return;
+            };
             var iter = view.iterator();
             try writer.writeAll("\"");
             while (iter.nextCodepointSlice()) |sl| {
