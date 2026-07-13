@@ -831,6 +831,9 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         .void => {
             try writer.writeAll("{}");
         },
+        .@"enum" => {
+            try T.stringifyJson(value, writer, options, @This());
+        },
         else => @compileError(@typeName(T)),
     }
 }
