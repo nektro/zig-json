@@ -804,7 +804,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             }
             try writer.writeAll("}");
         },
-        .comptime_int => {
+        .comptime_int, .int => {
             return nio.fmt.formatInt(value, 10, .lower, .{}, writer);
         },
         .optional => {
