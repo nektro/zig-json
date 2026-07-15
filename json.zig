@@ -793,6 +793,9 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
     }
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
+            if (@hasDecl(T, "stringifyJson")) {
+                return T.stringifyJson(value, writer, options, @This());
+            }
             try writer.writeAll("{");
             inline for (info.fields, 0..) |field, i| blk: {
                 const field_value = @field(value, field.name);
@@ -818,6 +821,9 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             try writer.writeAll(if (value) "true" else "false");
         },
         .@"union" => {
+            if (@hasDecl(T, "stringifyJson")) {
+                return T.stringifyJson(value, writer, options, @This());
+            }
             switch (value) {
                 inline else => |v, t| {
                     try writer.writeAll("{");
