@@ -799,7 +799,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             try writer.writeAll("{");
             inline for (info.fields, 0..) |field, i| blk: {
                 const field_value = @field(value, field.name);
-                if (@typeInfo(field.type) == .optional and field_value == null and !options.emit_null_optional_fields) break :blk;
+                if (((@typeInfo(field.type) == .optional and field_value == null) or @typeInfo(field.type) == .null) and !options.emit_null_optional_fields) break :blk;
                 if (i > 0) try writer.writeAll(",");
                 try stringify(writer, field.name, options);
                 try writer.writeAll(":");
@@ -839,6 +839,9 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         },
         .@"enum" => {
             try T.stringifyJson(value, writer, options, @This());
+        },
+        .null => {
+            try writer.writeAll("null");
         },
         else => @compileError(@typeName(T)),
     }
