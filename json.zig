@@ -455,15 +455,19 @@ pub const ValueIndex = enum(u32) {
         return this.v().stringify(writer, space, indent);
     }
 
-    pub fn v(this: ValueIndex) Value {
+    pub fn t(this: ValueIndex) Value.Tag {
         std.debug.assert(this != .zero);
         std.debug.assert(doc != null); // make sure to call Document.acquire()
-        return switch (@as(Value.Tag, @enumFromInt(doc.?.extras[@intFromEnum(this)]))) {
+        return @enumFromInt(doc.?.extras[@intFromEnum(this)]);
+    }
+
+    pub fn v(this: ValueIndex) Value {
+        return switch (this.t()) {
             .zero => .zero,
             .null => .null,
             .true => .true,
             .false => .false,
-            inline .object, .array, .string, .number => |t| @unionInit(Value, @tagName(t), @enumFromInt(@intFromEnum(this))),
+            inline .object, .array, .string, .number => |c| @unionInit(Value, @tagName(c), @enumFromInt(@intFromEnum(this))),
         };
     }
 
