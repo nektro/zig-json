@@ -580,7 +580,7 @@ fn expectCanonical(buffer: []const u8) !void {
     defer doc.deinit(alloc);
     doc.acquire();
     defer doc.release();
-    try expect(buffer).toEqualNFmt("{}", .{doc});
+    try expect(buffer).toEqualFmt("{}", .{doc});
 
     var buf: [4096]u8 = undefined;
     var out: nio.FixedBufferStream([]u8) = .init(&buf);
@@ -602,7 +602,7 @@ test { try expectCanonical("[7,8,9]"); }
 test {
     const alloc = std.testing.allocator;
     var fbs: nio.FixedBufferStream([]const u8) = .init(
-        \\["abc",456,"ghi",{"foo":"bar"}]
+        \\["abc",456,"ghi",{"foo":"bar"},890.123]
     );
     var doc = try json.parse(alloc, "", &fbs, .{ .support_trailing_commas = true, .maximum_depth = 100 });
     defer doc.deinit(alloc);
@@ -610,11 +610,12 @@ test {
     defer doc.release();
 
     const a = doc.root.array();
-    try std.testing.expectEqual(4, a.len);
+    try std.testing.expectEqual(5, a.len);
     try std.testing.expectEqualStrings("abc", a[0].string());
     try std.testing.expectEqual(456, a[1].number().get(u16));
     try std.testing.expectEqualStrings("ghi", a[2].string());
     try std.testing.expectEqualStrings("bar", a[3].object().getS("foo").?);
+    try std.testing.expectEqual(890.123, a[4].number().get(f32));
 }
 
 test {
