@@ -702,11 +702,11 @@ pub const NumberIndex = enum(u32) {
         return d[5..][0..len];
     }
 
-    pub fn get(this: NumberIndex, comptime T: type) !T {
+    pub fn get(this: NumberIndex, comptime T: type) ?T {
         return switch (@typeInfo(T)) {
             .int => extras.parseDigits(T, this.to(), 10) catch |err| switch (err) {
                 error.InvalidCharacter => unreachable,
-                error.Overflow => |e| e,
+                error.Overflow => null,
             },
             .float => std.fmt.parseFloat(T, this.to()) catch |err| switch (err) {
                 error.InvalidCharacter => unreachable,
