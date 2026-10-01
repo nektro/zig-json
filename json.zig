@@ -863,3 +863,38 @@ pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
     }
     return;
 }
+
+pub fn PartialWriter(comptime WriterType: type) type {
+    return struct {
+        backing_writer: WriterType,
+
+        const Self = @This();
+
+        pub fn init(backing_writer: WriterType) Self {
+            return .{
+                .backing_writer = backing_writer,
+            };
+        }
+
+        pub fn from(backing_writer: anytype) PartialWriter(@TypeOf(backing_writer)) {
+            return .init(backing_writer);
+        }
+
+        const W = nio.Writable(@This(), ._var);
+        pub const writeAll = W.writeAll;
+        pub const writevAll = W.writevAll;
+        pub const writeByteNTimes = W.writeByteNTimes;
+        pub const writeNTimes = W.writeNTimes;
+        pub const writeInt = W.writeInt;
+        pub const writeStruct = W.writeStruct;
+        pub const writeIntPretty = W.writeIntPretty;
+        pub const print = W.print;
+
+        pub const WriteError = extras.Pointee(WriterType).WriteError;
+
+        pub fn write(self: *Self, bytes: []const u8) WriteError!usize {
+            try stringifyPartialString(self.backing_writer, bytes);
+            return bytes.len;
+        }
+    };
+}
