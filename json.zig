@@ -731,61 +731,9 @@ const Space = union(enum) {
 pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Options) (extras.Pointee(@TypeOf(writer)).WriteError || error{Unexpected})!void {
     const T = @TypeOf(value);
     if (comptime extras.isZigString(T)) {
-        if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
-            if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
-                try writer.writevAll(&.{ &.{'"'}, value, &.{'"'} });
-            } else {
-                try writer.writeAll("\"");
-                for (value) |c| {
-                    try writer.writeAll(switch (c) {
-                        0x08 => "\\b",
-                        0x09 => "\\t",
-                        0x0a => "\\n",
-                        0x0c => "\\f",
-                        0x0d => "\\r",
-                        0x20...0x21 => &.{c},
-                        0x22 => "\\\"",
-                        0x23...0x7e => &.{c},
-                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
-                    });
-                }
-                try writer.writeAll("\"");
-            }
-        } else {
-            var view = std.unicode.Utf8View.init(value) catch {
-                try writer.writeAll("\"");
-                for (value) |c| {
-                    try writer.writeAll(switch (c) {
-                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
-                    });
-                }
-                try writer.writeAll("\"");
-                return;
-            };
-            var iter = view.iterator();
-            try writer.writeAll("\"");
-            while (iter.nextCodepointSlice()) |sl| {
-                const cp = std.unicode.utf8Decode(sl) catch unreachable;
-                if (cp < 128) {
-                    const c: u8 = @intCast(cp);
-                    try writer.writeAll(switch (c) {
-                        0x08 => "\\b",
-                        0x09 => "\\t",
-                        0x0a => "\\n",
-                        0x0c => "\\f",
-                        0x0d => "\\r",
-                        0x20...0x21 => &.{c},
-                        0x22 => "\\\"",
-                        0x23...0x7e => &.{c},
-                        else => "\\u00" ++ extras.to_hex([_]u8{c}),
-                    });
-                    continue;
-                }
-                try writer.writeAll(sl);
-            }
-            try writer.writeAll("\"");
-            return;
-        }
+        try writer.writeAll("\"");
+        try stringifyPartialString(writer, value);
+        try writer.writeAll("\"");
         return;
     }
     if (comptime extras.isArrayOf(u8)(T)) {
@@ -831,7 +779,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         },
         .@"union" => {
             if (@hasDecl(T, "stringifyJson")) {
-                return T.stringifyJson(value, writer, options, @This());
+                return value.stringifyJson(writer, options, @This());
             }
             switch (value) {
                 inline else => |v, t| {
@@ -862,4 +810,56 @@ pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std
     try writer.ensureUnusedCapacity(256);
     try stringify(&writer, value, options);
     return writer.toOwnedSlice();
+}
+
+pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
+    if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
+        if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
+            try writer.writeAll(value);
+            return;
+        }
+        for (value) |c| {
+            try writer.writeAll(switch (c) {
+                0x08 => "\\b",
+                0x09 => "\\t",
+                0x0a => "\\n",
+                0x0c => "\\f",
+                0x0d => "\\r",
+                0x20...0x21 => &.{c},
+                0x22 => "\\\"",
+                0x23...0x7e => &.{c},
+                else => "\\u00" ++ extras.to_hex([_]u8{c}),
+            });
+        }
+        return;
+    }
+    var view = std.unicode.Utf8View.init(value) catch {
+        for (value) |c| {
+            try writer.writeAll(switch (c) {
+                else => "\\u00" ++ extras.to_hex([_]u8{c}),
+            });
+        }
+        return;
+    };
+    var iter = view.iterator();
+    while (iter.nextCodepointSlice()) |sl| {
+        const cp = std.unicode.utf8Decode(sl) catch unreachable;
+        if (cp < 128) {
+            const c: u8 = @intCast(cp);
+            try writer.writeAll(switch (c) {
+                0x08 => "\\b",
+                0x09 => "\\t",
+                0x0a => "\\n",
+                0x0c => "\\f",
+                0x0d => "\\r",
+                0x20...0x21 => &.{c},
+                0x22 => "\\\"",
+                0x23...0x7e => &.{c},
+                else => "\\u00" ++ extras.to_hex([_]u8{c}),
+            });
+            continue;
+        }
+        try writer.writeAll(sl);
+    }
+    return;
 }
