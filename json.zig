@@ -165,7 +165,7 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
         }
         if (c != '\\') {
             if (c < 0x20) return error.MalformedJson;
-            const l = std.unicode.utf8CodepointSequenceLength(c) catch unreachable;
+            const l = std.unicode.utf8CodepointSequenceLength(c) catch return error.MalformedJson;
             const b = p.parser.temp.items[p.parser.idx - l ..][0..l];
             try characters.appendSlice(b);
             continue;
