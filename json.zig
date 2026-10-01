@@ -804,6 +804,10 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
     }
 }
 
+pub fn stringify2(writer: anytype, options: std.json.Stringify.Options, value: anytype) (extras.Pointee(@TypeOf(writer)).WriteError || error{Unexpected})!void {
+    return stringify(writer, value, options);
+}
+
 pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std.json.Stringify.Options) ![]u8 {
     var writer: nio.AllocatingWriter = .init(allocator);
     defer writer.deinit();
