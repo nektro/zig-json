@@ -748,10 +748,11 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
         try writer.writeAll("]");
         return;
     }
-    switch (@typeInfo(T)) {
+    const P = extras.Pointee(T);
+    switch (@typeInfo(P)) {
         .@"struct" => |info| {
-            if (@hasDecl(T, "stringifyJson")) {
-                return T.stringifyJson(value, writer, options, @This());
+            if (@hasDecl(P, "stringifyJson")) {
+                return value.stringifyJson(writer, options, @This());
             }
             try writer.writeAll("{");
             inline for (info.fields, 0..) |field, i| blk: {
@@ -778,7 +779,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             try writer.writeAll(if (value) "true" else "false");
         },
         .@"union" => {
-            if (@hasDecl(T, "stringifyJson")) {
+            if (@hasDecl(P, "stringifyJson")) {
                 return value.stringifyJson(writer, options, @This());
             }
             switch (value) {
@@ -795,7 +796,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             try writer.writeAll("{}");
         },
         .@"enum" => {
-            try T.stringifyJson(value, writer, options, @This());
+            try value.stringifyJson(writer, options, @This());
         },
         .null => {
             try writer.writeAll("null");
