@@ -819,7 +819,7 @@ pub fn stringifyAlloc(allocator: std.mem.Allocator, value: anytype, options: std
 
 pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
     if (extras.matchesAll(u8, value, std.ascii.isAscii)) {
-        if (extras.matchesAll(u8, value, std.ascii.isPrint)) {
+        if (extras.matchesAll(u8, value, std.ascii.isPrint) and std.mem.indexOfAny(u8, value, "\"\\") == null) {
             try writer.writeAll(value);
             return;
         }
