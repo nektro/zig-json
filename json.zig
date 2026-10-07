@@ -832,7 +832,9 @@ pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
                 0x0d => "\\r",
                 0x20...0x21 => &.{c},
                 0x22 => "\\\"",
-                0x23...0x7e => &.{c},
+                0x23...0x5b => &.{c},
+                0x5c => "\\\\",
+                0x5d...0x7e => &.{c},
                 else => "\\u00" ++ extras.to_hex([_]u8{c}),
             });
         }
@@ -859,7 +861,9 @@ pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
                 0x0d => "\\r",
                 0x20...0x21 => &.{c},
                 0x22 => "\\\"",
-                0x23...0x7e => &.{c},
+                0x23...0x5b => &.{c},
+                0x5c => "\\\\",
+                0x5d...0x7e => &.{c},
                 else => "\\u00" ++ extras.to_hex([_]u8{c}),
             });
             continue;
