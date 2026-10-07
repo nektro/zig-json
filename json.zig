@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const string = []const u8;
 const extras = @import("extras");
 const tracer = @import("tracer");
@@ -841,11 +842,7 @@ pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
         return;
     }
     var view = std.unicode.Utf8View.init(value) catch {
-        for (value) |c| {
-            try writer.writeAll(switch (c) {
-                else => "\\u00" ++ extras.to_hex([_]u8{c}),
-            });
-        }
+        if (builtin.mode == .Debug) try writer.writeAll("{INVALID_UTF8}");
         return;
     };
     var iter = view.iterator();
