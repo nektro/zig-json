@@ -732,9 +732,7 @@ const Space = union(enum) {
 pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Options) (extras.Pointee(@TypeOf(writer)).WriteError || error{Unexpected})!void {
     const T = @TypeOf(value);
     if (comptime extras.isZigString(T)) {
-        try writer.writeAll("\"");
-        try stringifyPartialString(writer, value);
-        try writer.writeAll("\"");
+        try stringify0.string(writer, value);
         return;
     }
     if (comptime extras.isArrayOf(u8)(T)) {
@@ -760,9 +758,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 const field_value = @field(value, field.name);
                 if (((@typeInfo(field.type) == .optional and field_value == null) or @typeInfo(field.type) == .null) and !options.emit_null_optional_fields) break :blk;
                 if (i > 0) try writer.writeAll(",");
-                try stringify(writer, field.name, options);
-                try writer.writeAll(":");
-                try stringify(writer, field_value, options);
+                try stringify0.field(writer, field.name, options, field_value);
             }
             try writer.writeAll("}");
         },
@@ -786,9 +782,7 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
             switch (value) {
                 inline else => |v, t| {
                     try writer.writeAll("{");
-                    try stringify(writer, @tagName(t), options);
-                    try writer.writeAll(":");
-                    try stringify(writer, v, options);
+                    try stringify0.field(writer, @tagName(t), options, v);
                     try writer.writeAll("}");
                 },
             }
@@ -904,3 +898,43 @@ pub fn PartialWriter(comptime WriterType: type) type {
         }
     };
 }
+
+pub const stringify0 = struct {
+    pub fn Iterator(T: type) type {
+        return struct {
+            iterator: T,
+
+            pub fn init(iterator: T) @This() {
+                return .{
+                    .iterator = iterator,
+                };
+            }
+
+            pub fn from(iterator: anytype) Iterator(@TypeOf(iterator)) {
+                return .init(iterator);
+            }
+
+            pub fn stringifyJson(self: @This(), writer: anytype, options: std.json.Stringify.Options, _: type) !void {
+                try writer.writeAll("[");
+                var i: usize = 0;
+                while (self.iterator.next()) |item| : (i += 1) {
+                    if (i > 0) try writer.writeAll(",");
+                    try stringify(writer, item, options);
+                }
+                try writer.writeAll("]");
+            }
+        };
+    }
+
+    pub fn string(writer: anytype, value: []const u8) !void {
+        try writer.writeAll("\"");
+        try stringifyPartialString(writer, value);
+        try writer.writeAll("\"");
+    }
+
+    pub fn field(writer: anytype, name: []const u8, options: std.json.Stringify.Options, value: anytype) !void {
+        try stringify0.string(writer, name);
+        try writer.writeAll(":");
+        try stringify(writer, value, options);
+    }
+};
