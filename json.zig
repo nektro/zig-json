@@ -45,9 +45,6 @@ fn parseElementPrecise(alloc: std.mem.Allocator, p: *Parser, comptime E: type) E
 }
 
 fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     try parseWs(p);
     const v = try parseValue(alloc, p);
     parseWs(p) catch |err| switch (err) {
@@ -58,9 +55,6 @@ fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 }
 
 fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     if (try p.parser.eat("null")) |_| return @enumFromInt(1);
     if (try p.parser.eat("true")) |_| return @enumFromInt(2);
     if (try p.parser.eat("false")) |_| return @enumFromInt(3);
@@ -72,9 +66,6 @@ fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 }
 
 fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     p.depth += 1;
     defer p.depth -= 1;
     if (p.depth > p.maximum_depth) return error.MalformedJson;
@@ -113,9 +104,6 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     p.depth += 1;
     defer p.depth -= 1;
     if (p.depth > p.maximum_depth) return error.MalformedJson;
@@ -150,9 +138,6 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
     var characters = std.array_list.Managed(u8).init(stack_fallback.get());
     defer characters.deinit();
@@ -197,9 +182,6 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
 }
 
 fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
     var characters = std.array_list.Managed(u8).init(stack_fallback.get());
     defer characters.deinit();
@@ -242,9 +224,6 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseWs(p: *Parser) !void {
-    const t = tracer.trace(@src(), "", .{});
-    defer t.end();
-
     while (true) {
         if (try p.parser.eatByte(0x20)) |_| continue; // space
         if (try p.parser.eatByte(0x0A)) |_| continue; // NL
@@ -293,9 +272,6 @@ pub const Parser = struct {
 
     // tag(u8) + len(u32) + member_keys(N * u32) + member_values(N * u32)
     pub fn addObject(p: *Parser, members: *const ObjectHashMap) !ValueIndex {
-        const t = tracer.trace(@src(), "({d})", .{members.entries.len});
-        defer t.end();
-
         const alloc = p.parser.allocator;
         const r = p.parser.data.items.len;
         const l = members.entries.len;
@@ -309,9 +285,6 @@ pub const Parser = struct {
     }
 
     pub fn addObjectFromConst(p: *Parser, members: []const struct { StringIndex, ValueIndex }) !ValueIndex {
-        const t = tracer.trace(@src(), "({d})", .{members.len});
-        defer t.end();
-
         const alloc = p.parser.allocator;
         var map = ObjectHashMap{};
         defer map.deinit(alloc);
@@ -322,9 +295,6 @@ pub const Parser = struct {
 
     // tag(u8) + len(u32) + items(N * u32)
     pub fn addArray(p: *Parser, items: []const ValueIndex) !ValueIndex {
-        const t = tracer.trace(@src(), "({d})", .{items.len});
-        defer t.end();
-
         const alloc = p.parser.allocator;
         const r = p.parser.data.items.len;
         const l = items.len;
@@ -338,9 +308,6 @@ pub const Parser = struct {
 
     // tag(u8) + len(u32) + bytes(N)
     pub fn addStr(p: *Parser, str: string) !StringIndex {
-        const t = tracer.trace(@src(), "({d})", .{str.len});
-        defer t.end();
-
         const alloc = p.parser.allocator;
         return @enumFromInt(try p.parser.addStr(alloc, str));
     }
@@ -368,9 +335,6 @@ pub const Parser = struct {
     };
 
     pub fn addNumber(p: *Parser, v: []const u8) !ValueIndex {
-        const t = tracer.trace(@src(), "({s})", .{v});
-        defer t.end();
-
         const alloc = p.parser.allocator;
         const adapter: AdapterNum = .{ .p = p };
         const res = try p.numbers_map.getOrPutAdapted(alloc, v, adapter);
