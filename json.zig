@@ -225,10 +225,11 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 
 fn parseWs(p: *Parser) !void {
     while (true) {
-        if (try p.parser.eatByte(0x20)) |_| continue; // space
-        if (try p.parser.eatByte(0x0A)) |_| continue; // NL
-        if (try p.parser.eatByte(0x0D)) |_| continue; // CR
-        if (try p.parser.eatByte(0x09)) |_| continue; // TAB
+        try p.parser.peekAmt(1) orelse break;
+        if (p.parser.swallowByte(0x20)) |_| continue; // space
+        if (p.parser.swallowByte(0x0A)) |_| continue; // NL
+        if (p.parser.swallowByte(0x0D)) |_| continue; // CR
+        if (p.parser.swallowByte(0x09)) |_| continue; // TAB
         break;
     }
 }
