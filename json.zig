@@ -210,9 +210,9 @@ fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
         }
         if (characters.items.len == l) return error.MalformedJson;
     }
-    if (try p.parser.eatAnyScalar("eE")) |_| {
+    if (try p.parser.eatAny("eE")) |_| {
         try characters.append('e');
-        try characters.append(try p.parser.eatAnyScalar("+-") orelse '+');
+        try characters.append(try p.parser.eatAny("+-") orelse '+');
         const l = characters.items.len;
         while (try p.parser.eatRange('0', '9')) |d| {
             try characters.append(d);
@@ -244,7 +244,7 @@ pub const Parser = struct {
 
     pub fn init(allocator: std.mem.Allocator, any: nio.AnyReadable, options: Options) !Parser {
         var p: Parser = .{
-            .parser = intrusive_parser.Parser.init(allocator, any, @intFromEnum(Value.Tag.string)),
+            .parser = .init(allocator, any, @intFromEnum(Value.Tag.string)),
             .support_trailing_commas = options.support_trailing_commas,
             .maximum_depth = options.maximum_depth,
         };
