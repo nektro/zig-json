@@ -55,11 +55,11 @@ fn parseElement(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
 }
 
 fn parseValue(alloc: std.mem.Allocator, p: *Parser) anyerror!ValueIndex {
-    if (try p.parser.eat("null")) |_| return @enumFromInt(1);
-    if (try p.parser.eat("true")) |_| return @enumFromInt(2);
-    if (try p.parser.eat("false")) |_| return @enumFromInt(3);
+    if (try p.parser.eat("null")) |_| return @fromBackingInt(@intCast(1));
+    if (try p.parser.eat("true")) |_| return @fromBackingInt(@intCast(2));
+    if (try p.parser.eat("false")) |_| return @fromBackingInt(@intCast(3));
     if (try parseNumber(alloc, p)) |v| return v;
-    if (try parseString(alloc, p)) |v| return @enumFromInt(@intFromEnum(v));
+    if (try parseString(alloc, p)) |v| return @fromBackingInt(@intCast(@backingInt(v)));
     if (try parseArray(alloc, p)) |v| return v;
     if (try parseObject(alloc, p)) |v| return v;
     return error.MalformedJson;
@@ -73,8 +73,9 @@ fn parseObject(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.parser.eatByte('{') orelse return null;
     try parseWs(p);
 
-    var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    const alloc_local = sfa.get();
+    var buf: [4096]u8 = undefined;
+    var sfa = std.heap.BufferFirstAllocator.init(&buf, alloc);
+    const alloc_local = sfa.allocator();
     var members = ObjectHashMap{};
     defer members.deinit(alloc_local);
 
@@ -111,8 +112,9 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
     _ = try p.parser.eatByte('[') orelse return null;
     try parseWs(p);
 
-    var sfa = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    const alloc_local = sfa.get();
+    var buf: [4096]u8 = undefined;
+    var sfa = std.heap.BufferFirstAllocator.init(&buf, alloc);
+    const alloc_local = sfa.allocator();
     var elements: std.ArrayListUnmanaged(ValueIndex) = .empty;
     defer elements.deinit(alloc_local);
 
@@ -138,8 +140,9 @@ fn parseArray(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
 }
 
 fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
-    var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    var characters = std.array_list.Managed(u8).init(stack_fallback.get());
+    var buf: [4096]u8 = undefined;
+    var stack_fallback = std.heap.BufferFirstAllocator.init(&buf, alloc);
+    var characters = std.array_list.Managed(u8).init(stack_fallback.allocator());
     defer characters.deinit();
 
     _ = try p.parser.eatByte('"') orelse return null;
@@ -182,8 +185,9 @@ fn parseString(alloc: std.mem.Allocator, p: *Parser) anyerror!?StringIndex {
 }
 
 fn parseNumber(alloc: std.mem.Allocator, p: *Parser) anyerror!?ValueIndex {
-    var stack_fallback = std.heap.stackFallback(std.heap.page_size_min, alloc);
-    var characters = std.array_list.Managed(u8).init(stack_fallback.get());
+    var buf: [4096]u8 = undefined;
+    var stack_fallback = std.heap.BufferFirstAllocator.init(&buf, alloc);
+    var characters = std.array_list.Managed(u8).init(stack_fallback.allocator());
     defer characters.deinit();
 
     if (try p.parser.eatByte('-')) |c| {
@@ -244,16 +248,16 @@ pub const Parser = struct {
 
     pub fn init(allocator: std.mem.Allocator, any: nio.AnyReadable, options: Options) !Parser {
         var p: Parser = .{
-            .parser = .init(allocator, any, @intFromEnum(Value.Tag.string)),
+            .parser = .init(allocator, any, @backingInt(Value.Tag.string)),
             .support_trailing_commas = options.support_trailing_commas,
             .maximum_depth = options.maximum_depth,
         };
-        comptime std.debug.assert(@intFromEnum(Value.zero) == 0);
+        comptime std.debug.assert(@backingInt(Value.zero) == 0);
         try p.parser.data.ensureUnusedCapacity(allocator, 4096);
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.zero));
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.null));
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.true));
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.false));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.zero));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.null));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.true));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.false));
         _ = try p.addStr("");
         std.debug.assert(try p.addArray(&.{}) == .empty_array);
         std.debug.assert(try p.addObject(&ObjectHashMap{}) == .empty_object);
@@ -278,11 +282,11 @@ pub const Parser = struct {
         const l = members.entries.len;
         if (l > std.math.maxInt(u32)) return error.MalformedJson;
         try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4 * 2));
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.object));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.object));
         p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
         p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.keys()));
         p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(members.values()));
-        return @enumFromInt(r);
+        return @fromBackingInt(@intCast(r));
     }
 
     pub fn addObjectFromConst(p: *Parser, members: []const struct { StringIndex, ValueIndex }) !ValueIndex {
@@ -301,21 +305,21 @@ pub const Parser = struct {
         const l = items.len;
         if (l > std.math.maxInt(u32)) return error.MalformedJson;
         try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + (l * 4));
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.array));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.array));
         p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
         p.parser.data.appendSliceAssumeCapacity(std.mem.sliceAsBytes(items));
-        return @enumFromInt(r);
+        return @fromBackingInt(@intCast(r));
     }
 
     // tag(u8) + len(u32) + bytes(N)
     pub fn addStr(p: *Parser, str: string) !StringIndex {
         const alloc = p.parser.allocator;
-        return @enumFromInt(try p.parser.addStr(alloc, str));
+        return @fromBackingInt(@intCast(try p.parser.addStr(alloc, str)));
     }
 
     // tag(u8) + len(u32) + bytes(N)
     pub fn addStrV(p: *Parser, str: string) !ValueIndex {
-        return @enumFromInt(@intFromEnum(try p.addStr(str)));
+        return @fromBackingInt(@intCast(@backingInt(try p.addStr(str))));
     }
 
     const Adapter = struct {
@@ -339,16 +343,16 @@ pub const Parser = struct {
         const alloc = p.parser.allocator;
         const adapter: AdapterNum = .{ .p = p };
         const res = try p.numbers_map.getOrPutAdapted(alloc, v, adapter);
-        if (res.found_existing) return @enumFromInt(@intFromEnum(res.value_ptr.*));
+        if (res.found_existing) return @fromBackingInt(@intCast(@backingInt(res.value_ptr.*)));
         errdefer p.numbers_map.orderedRemoveAt(res.index);
         const r = p.parser.data.items.len;
         const l = v.len;
         try p.parser.data.ensureUnusedCapacity(alloc, 1 + 4 + l);
-        p.parser.data.appendAssumeCapacity(@intFromEnum(Value.Tag.number));
+        p.parser.data.appendAssumeCapacity(@backingInt(Value.Tag.number));
         p.parser.data.appendSliceAssumeCapacity(&std.mem.toBytes(@as(u32, @intCast(l))));
         p.parser.data.appendSliceAssumeCapacity(v);
-        res.value_ptr.* = @enumFromInt(r);
-        return @enumFromInt(r);
+        res.value_ptr.* = @fromBackingInt(@intCast(r));
+        return @fromBackingInt(@intCast(r));
     }
 
     const AdapterNum = struct {
@@ -363,8 +367,8 @@ pub const Parser = struct {
 
         pub fn eql(ctx: @This(), a: string, _: string, b_index: usize) bool {
             const sidx = ctx.p.numbers_map.values()[b_index];
-            const i: u32 = @intFromEnum(sidx);
-            std.debug.assert(@as(Value.Tag, @enumFromInt(ctx.p.parser.data.items[i])) == .number);
+            const i: u32 = @backingInt(sidx);
+            std.debug.assert(@as(Value.Tag, @fromBackingInt(@intCast(ctx.p.parser.data.items[i]))) == .number);
             const l: u32 = @bitCast(ctx.p.parser.data.items[i..][1..][0..4].*);
             const b = ctx.p.parser.data.items[i..][1..][4..][0..l];
             return std.mem.eql(u8, a, b);
@@ -414,7 +418,7 @@ pub const ValueIndex = enum(u32) {
     _,
 
     pub fn nprint(this: ValueIndex, writer: anytype) !void {
-        return nio.fmt.format(writer, "{}", .{this.v()});
+        try this.v().nprint(writer);
     }
 
     fn stringify(this: ValueIndex, writer: anytype, space: Space, indent: u8) !void {
@@ -424,7 +428,7 @@ pub const ValueIndex = enum(u32) {
     pub fn t(this: ValueIndex) Value.Tag {
         std.debug.assert(this != .zero);
         std.debug.assert(doc != null); // make sure to call Document.acquire()
-        return @enumFromInt(doc.?.extras[@intFromEnum(this)]);
+        return @fromBackingInt(@intCast(doc.?.extras[@backingInt(this)]));
     }
 
     pub fn v(this: ValueIndex) Value {
@@ -433,7 +437,7 @@ pub const ValueIndex = enum(u32) {
             .null => .null,
             .true => .true,
             .false => .false,
-            inline .object, .array, .string, .number => |c| @unionInit(Value, @tagName(c), @enumFromInt(@intFromEnum(this))),
+            inline .object, .array, .string, .number => |c| @unionInit(Value, @tagName(c), @fromBackingInt(@intCast(@backingInt(this)))),
         };
     }
 
@@ -474,13 +478,13 @@ pub const Value = union(enum(u8)) {
 
     const Tag = std.meta.Tag(@This());
 
-    pub fn nprint(this: Value, writer: anytype) !void {
+    pub fn nprint(this: Value, writer: anytype) extras.Pointee(@TypeOf(writer)).WriteError!void {
         return switch (this) {
             .zero => unreachable,
-            .null => nio.fmt.format(writer, "null", .{}),
-            .true => nio.fmt.format(writer, "true", .{}),
-            .false => nio.fmt.format(writer, "false", .{}),
-            inline .object, .array, .string, .number => |t| nio.fmt.format(writer, "{}", .{t}),
+            .null => writer.writeAll("null"),
+            .true => writer.writeAll("true"),
+            .false => writer.writeAll("false"),
+            inline .object, .array, .string, .number => |t| t.nprint(writer),
         };
     }
 
@@ -514,8 +518,8 @@ pub const StringIndex = enum(u32) {
     }
 
     pub fn to(this: StringIndex) []const u8 {
-        var d = doc.?.extras.ptr[@intFromEnum(this)..];
-        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .string);
+        var d = doc.?.extras.ptr[@backingInt(this)..];
+        std.debug.assert(@as(Value.Tag, @fromBackingInt(@intCast(d[0]))) == .string);
         const len: u32 = @bitCast(d[1..5].*);
         return d[5..][0..len];
     }
@@ -550,8 +554,8 @@ pub const ArrayIndex = enum(u32) {
     }
 
     pub fn to(this: ArrayIndex) Array {
-        var d = doc.?.extras.ptr[@intFromEnum(this)..];
-        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .array);
+        var d = doc.?.extras.ptr[@backingInt(this)..];
+        std.debug.assert(@as(Value.Tag, @fromBackingInt(@intCast(d[0]))) == .array);
         const len: u32 = @bitCast(d[1..5].*);
         const e: [*]align(1) const ValueIndex = @ptrCast(d[5..]);
         return e[0..len];
@@ -566,9 +570,9 @@ pub const ObjectIndex = enum(u32) {
         try writer.writeAll("{");
         for (keys, values, 0..) |k, v, i| {
             if (i > 0) try writer.writeAll(",");
-            try writer.print("{}", .{k});
+            try k.nprint(writer);
             try writer.writeAll(":");
-            try writer.print("{}", .{v});
+            try v.nprint(writer);
         }
         try writer.writeAll("}");
     }
@@ -591,8 +595,8 @@ pub const ObjectIndex = enum(u32) {
     }
 
     pub fn to(this: ObjectIndex) struct { []align(1) const StringIndex, Array } {
-        var d = doc.?.extras.ptr[@intFromEnum(this)..];
-        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .object);
+        var d = doc.?.extras.ptr[@backingInt(this)..];
+        std.debug.assert(@as(Value.Tag, @fromBackingInt(@intCast(d[0]))) == .object);
         const len: u32 = @bitCast(d[1..5].*);
         const k: [*]align(1) const StringIndex = @ptrCast(d[5..]);
         const v: [*]align(1) const ValueIndex = @ptrCast(k + len);
@@ -662,8 +666,8 @@ pub const NumberIndex = enum(u32) {
     }
 
     pub fn to(this: NumberIndex) []const u8 {
-        var d = doc.?.extras.ptr[@intFromEnum(this)..];
-        std.debug.assert(@as(Value.Tag, @enumFromInt(d[0])) == .number);
+        var d = doc.?.extras.ptr[@backingInt(this)..];
+        std.debug.assert(@as(Value.Tag, @fromBackingInt(@intCast(d[0]))) == .number);
         const len: u32 = @bitCast(d[1..5].*);
         return d[5..][0..len];
     }
