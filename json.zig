@@ -723,11 +723,11 @@ pub fn stringify(writer: anytype, value: anytype, options: std.json.Stringify.Op
                 return value.stringifyJson(writer, options, @This());
             }
             try writer.writeAll("{");
-            inline for (info.fields, 0..) |field, i| blk: {
-                const field_value = @field(value, field.name);
-                if (((@typeInfo(field.type) == .optional and field_value == null) or @typeInfo(field.type) == .null) and !options.emit_null_optional_fields) break :blk;
+            inline for (info.field_names, info.field_types, 0..) |field, ty, i| blk: {
+                const field_value = @field(value, field);
+                if (((@typeInfo(ty) == .optional and field_value == null) or @typeInfo(ty) == .null) and !options.emit_null_optional_fields) break :blk;
                 if (i > 0) try writer.writeAll(",");
-                try stringify0.field(writer, field.name, options, field_value);
+                try stringify0.field(writer, field, options, field_value);
             }
             try writer.writeAll("}");
         },
@@ -805,7 +805,7 @@ pub fn stringifyPartialString(writer: anytype, value: anytype) !void {
         return;
     }
     var view = std.unicode.Utf8View.init(value) catch {
-        if (builtin.mode == .Debug) try writer.writeAll("{INVALID_UTF8}");
+        if (builtin.mode == .debug) try writer.writeAll("{INVALID_UTF8}");
         return;
     };
     var iter = view.iterator();
